@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  ruuf:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
