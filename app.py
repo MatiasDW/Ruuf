@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 from packing import pack_count_and_layout
 
-# mini easter egg: algún día soportaremos paneles hexagonales. TODO: bees. 🐝
 
 st.set_page_config(page_title="Ruuf — Solar Panel Packing", page_icon="🔧", layout="centered")
 

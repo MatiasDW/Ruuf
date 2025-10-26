@@ -9,11 +9,7 @@ def _shift(placements: List[Placement], dx: int = 0, dy: int = 0) -> List[Placem
 
 @lru_cache(maxsize=None)
 def _pack_cached(W: int, H: int, w: int, h: int) -> Tuple[int, Tuple[Placement, ...]]:
-    """
-    Empaquetado guillotina para rectángulo W×H con paneles w×h idénticos.
-    Devuelve (count, placements) con placements como tupla de (x, y, w, h).
-    Internamente considera ambas orientaciones (w×h y h×w) y toma la mejor.
-    """
+    
     best_count = 0
     best_pl = ()
 
@@ -59,12 +55,6 @@ def _pack_cached(W: int, H: int, w: int, h: int) -> Tuple[int, Tuple[Placement, 
     return best_count, best_pl
 
 def pack_count_and_layout(x: float, y: float, a: float, b: float, precision: float = 0.1):
-    """
-    Interfaz pública con floats. Escala a enteros según 'precision' (ej: 0.1 -> 1 dec).
-    - x,y: techo
-    - a,b: panel (alto=a, ancho=b)
-    Devuelve (count, placements, scale_info)
-    """
     if min(x, y, a, b, precision) <= 0:
         return 0, [], {"scale": precision, "W": 0, "H": 0, "w": 0, "h": 0}
 
