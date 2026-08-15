@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: Format, lint, typecheck, and test
+        run: make backend-check PYTHON=python
+      - name: Audit runtime dependencies
+        run: python -m pip_audit -r backend/requirements.txt
+
+  frontend:
+    name: Frontend quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Format, lint, typecheck, test, and build
+        run: make frontend-check
+      - name: Install browser for responsive tests
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Test desktop and mobile views
+        run: make frontend-e2e
+
+  containers:
+    name: Container build
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build all images
+        run: docker compose build
