@@ -1,0 +1,16 @@
+__pycache__/
+.pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+coverage/
+htmlcov/
+playwright-report/
+test-results/
+.venv/
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+backend/db.sqlite3
+backend/staticfiles/
