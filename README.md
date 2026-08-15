@@ -66,30 +66,24 @@ make docker-up
 
 The backend container applies migrations and runs the idempotent catalog seed before Gunicorn starts. PostgreSQL and Redis are internal-only and are not published to the host.
 
-## Run locally
+## Development workflow
 
-Use Node `22.13.0` from `.nvmrc` and Python `3.12`.
+Docker is the only Python prerequisite. Backend formatting, linting, type checks, migrations checks, tests, and dependency audits run in the `ruuf-backend-dev` image. No host Python installation or virtual environment is required.
+
+Use Node `22.13.0` from `.nvmrc` for frontend quality commands:
 
 ```bash
-python3.12 -m venv .venv
 make install
-make backend-migrate
-make backend-seed
 make check
 ```
 
-Run Django directly:
+After `make docker-up`, operational Django commands execute inside the running backend container:
 
 ```bash
-cd backend
-../.venv/bin/python manage.py runserver 0.0.0.0:5050
-```
-
-Run React in another terminal:
-
-```bash
-cd frontend
-npm run dev
+make backend-migrate
+make backend-seed
+make backend-shell
+docker compose exec backend python manage.py createsuperuser
 ```
 
 ## API

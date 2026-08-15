@@ -19,17 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/requirements*.txt
-      - name: Install dependencies
-        run: python -m pip install -r backend/requirements-dev.txt
-      - name: Format, lint, typecheck, and test
-        run: make backend-check PYTHON=python
-      - name: Audit runtime dependencies
-        run: python -m pip_audit -r backend/requirements.txt
+      - name: Check and audit backend in Docker
+        run: make backend-check backend-audit
 
   frontend:
     name: Frontend quality
