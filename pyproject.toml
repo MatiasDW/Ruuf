@@ -8,20 +8,29 @@ select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
 
 [tool.ruff.lint.isort]
 known-first-party = [
-  "app",
-  "cache",
+  "api",
+  "audit",
   "catalog",
-  "db",
+  "common",
+  "config",
+  "domain",
+  "finance",
+  "identity",
   "irrigation",
-  "landscape",
-  "observability",
-  "repository",
-  "settings",
-  "validation",
+  "planning",
+  "projects",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/**/migrations/*.py" = ["E501", "RUF012"]
+"backend/**/models.py" = ["RUF012"]
+"backend/api/serializers.py" = ["RUF012"]
+"backend/api/views.py" = ["RUF012"]
+"backend/planning/compat_views.py" = ["RUF012"]
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
+DJANGO_SETTINGS_MODULE = "config.settings"
 pythonpath = ["backend"]
 testpaths = ["backend/tests"]
 
@@ -38,7 +47,9 @@ fail_under = 75
 [tool.mypy]
 python_version = "3.12"
 files = ["backend"]
-exclude = ["backend/tests"]
+mypy_path = "backend"
+exclude = ["backend/.*/migrations/", "backend/tests/"]
+plugins = ["mypy_django_plugin.main"]
 check_untyped_defs = true
 disallow_untyped_defs = true
 no_implicit_optional = true
@@ -46,3 +57,6 @@ warn_redundant_casts = true
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings"

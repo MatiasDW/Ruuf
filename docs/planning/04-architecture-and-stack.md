@@ -30,13 +30,13 @@ El motor de dominio debe vivir en paquetes Python independientes de HTTP y Djang
 | React 18 + TypeScript | Mantener | Migracion estricta completada en la base actual |
 | Vite | Mantener | No migrar a Next.js sin necesidad de SSR |
 | CSS unico | Evolucionar | Tokens, componentes base y estilos por dominio |
-| Flask | Reemplazar de forma incremental | Django + DRF/GeoDjango |
-| SQLAlchemy manual | Reemplazar en app nueva | Django ORM y migraciones |
+| Django + DRF | Mantener | Migracion desde Flask completada para el backend base |
+| Django ORM | Mantener | Migraciones por dominio implementadas |
 | PostgreSQL | Mantener | Activar PostGIS y backups administrados |
 | Redis | Mantener | Cache, jobs, locks y rate limit; nunca source of truth |
 | Gunicorn | Mantener concepto | Gunicorn/ASGI segun necesidades reales |
 | Docker Compose | Mantener local | Imagenes de produccion separadas y servicios administrados |
-| Init SQL | Retirar gradualmente | Migraciones idempotentes y seed commands |
+| Migraciones + seed command | Mantener | SQL manual retirado |
 
 ## Por que React + TypeScript + Vite
 
@@ -87,15 +87,14 @@ Django entrega una base coherente para estos problemas. Django REST Framework ag
 
 FastAPI es excelente para APIs tipadas y podria servir en un servicio de solver futuro. Para esta plataforma obligaria a ensamblar y mantener por separado administracion, autenticacion, permisos, sesiones y muchos flujos CRUD. El beneficio de tipado HTTP no compensa ese costo en el sistema principal.
 
-### Estrategia de migracion sin big bang
+### Estado de la migracion
 
-1. Extraer `landscape.py` e `irrigation.py` a un paquete Python sin imports de framework.
-2. Crear el proyecto Django al lado de Flask.
-3. Implementar identidad, organizaciones, proyectos y catalogo en Django.
-4. Exponer `/api/v1` y mantener temporalmente `/api/plan` en Flask.
-5. Llamar al mismo paquete de dominio desde ambos durante la transicion.
-6. Mover planificacion a jobs Django/Celery.
-7. Cambiar el proxy del frontend y retirar Flask al completar pruebas de contrato.
+1. Los motores de planificacion y riego viven en `backend/domain` sin imports de Django.
+2. Django y DRF son el unico backend; Flask fue retirado.
+3. Identidad, organizaciones, proyectos, catalogo, layouts, riego, finanzas y auditoria ya tienen modelos y migraciones.
+4. `/api/v1` persiste datos y `/api/plants` + `/api/plan` conservan el contrato del frontend actual.
+5. Celery ejecuta trabajos de optimizacion desde snapshots persistidos.
+6. PostGIS se activara al incorporar consultas GIS; el editor actual usa coordenadas locales metricas.
 
 No se comparte escritura sobre tablas sin una migracion y propietario claros.
 

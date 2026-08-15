@@ -58,5 +58,22 @@ jobs:
     needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
+      - name: Generate ephemeral Compose secrets
+        run: |
+          echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+          echo "REDIS_PASSWORD=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+          echo "DJANGO_SECRET_KEY=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
       - name: Build all images
         run: docker compose build
+      - name: Start backend dependencies
+        run: docker compose up -d --wait postgres redis backend
+      - name: Smoke test migrations, seed, database, and cache
+        run: |
+          curl --fail --silent --show-error http://localhost:5050/api/health
+          test "$(curl --fail --silent http://localhost:5050/api/plants | jq length)" -ge 8
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose logs --tail=200 backend postgres redis
+      - name: Stop containers
+        if: always()
+        run: docker compose down --remove-orphans

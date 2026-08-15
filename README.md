@@ -1,138 +1,135 @@
 # Ruuf Landscape Planner
 
-This repo uses a **React + TypeScript frontend** and a **Python/Flask backend** to prototype a landscaping planner for residential yards.
+Ruuf is a residential landscaping planner with a responsive React editor and a persistent Django backend. It captures a property, plant wishlist, environmental constraints, irrigation assumptions, and project costs; then it produces a versioned layout with explicit fit issues.
 
-The product direction is:
+## What works now
 
-- intake yard measurements
-- capture a wishlist of trees, shrubs, flowers, and grasses
-- validate fit based on spacing and obstacle clearance
-- reject plants that do not match the site or no longer fit
-- suggest smaller or lower-water alternatives
-- estimate irrigation demand
-- estimate water cost in Chile from volumetric tariffs
+- responsive customer flow at `/`, `/proyecto`, `/plantas`, and `/plan`
+- provisional catalog of trees, shrubs, flowers, and grasses
+- deterministic placement with yard, obstacle, sunlight, and plant-spacing checks
+- structured conflict rings for drag-and-drop validation
+- irrigation volume, efficiency range, and Chilean `CLP/m3` cost estimates
+- session authentication with CSRF protection
+- organizations and roles: owner, admin, designer, finance, and viewer
+- clients, projects, versioned sites, layouts, items, and validation issues
+- water providers and versioned tariffs
+- price books, quotes, budgets, expenses, and finance summaries
+- audit events, Redis cache, and Celery optimization jobs
+- Django Admin and validated OpenAPI documentation
+
+The eight seeded plants are explicitly marked `prototype_unverified`; their horticultural values must be reviewed before production recommendations.
 
 ## Stack
 
-- Frontend: React 18, strict TypeScript, Vite
-- Prototype API: Python 3.12, Flask, Pydantic
-- Target product backend: Django modular monolith, Django REST Framework, PostGIS
-- Orchestration: Docker Compose
-- Data: PostgreSQL + Redis
-- Quality: Ruff, MyPy, Pytest, ESLint, Prettier, Vitest, GitHub Actions
+- Web: React 18, strict TypeScript, Vite
+- API: Python 3.12, Django 5.2 LTS, Django REST Framework
+- Domain engine: framework-independent Python
+- Jobs and cache: Celery + Redis
+- Data: PostgreSQL 16 locally; PostgreSQL + PostGIS is the production target
+- Runtime: Gunicorn and Docker Compose
+- Quality: Ruff, MyPy, Pytest, ESLint, Prettier, Vitest, Playwright, GitHub Actions
 
-## Current prototype and target architecture
-
-TypeScript and Django are not alternatives here. TypeScript makes the browser editor and its API contracts safer; Django is the future Python server responsible for permissions, projects, spatial data, approvals, quotes, and audit history. Flask remains a deliberately small API while the planning algorithm and product workflow are validated, then its domain services move behind Django REST Framework without rewriting the React client.
-
-The complete product, technology, data, security, finance, and delivery plan is indexed in [`docs/planning/README.md`](docs/planning/README.md).
-
-## Repo layout
+## Repository
 
 ```text
-.
-├── backend/
-│   ├── app.py
-│   ├── cache.py
-│   ├── catalog.py
-│   ├── db.py
-│   ├── irrigation.py
-│   ├── landscape.py
-│   ├── repository.py
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── vite.config.ts
-│   └── Dockerfile
-├── infra/
-├── docs/
-├── .context/
-├── docker-compose.yml
-├── Makefile
-└── pyproject.toml
+backend/
+  config/           Django settings, URLs, WSGI, ASGI, Celery
+  api/              serializers, permissions, routes, API views
+  identity/         users, organizations, memberships, clients
+  projects/         projects, sites, site versions, features
+  catalog/          species, cultivars, versioned rules, seed command
+  planning/         layouts, revisions, items, issues, solver jobs
+  irrigation/       providers, tariffs, zones, estimates
+  finance/          price books, quotes, budgets, expenses
+  audit/            append-only domain audit events
+  domain/           planning and irrigation engines without Django imports
+  tests/            API, permission, persistence, and domain tests
+frontend/            React application
+docs/planning/        product and architecture decisions
+docker-compose.yml    local application stack
+Makefile              local and CI command interface
 ```
-
-The removed root Python files belonged to the original solar-panel packing prototype and are no longer part of the product path.
-
-## Run locally
-
-Use Node `22.13.0` (recorded in `.nvmrc`) and Python `3.12`. The repository exposes the same commands locally and in CI:
-
-```bash
-python3.12 -m venv .venv
-make install
-make check
-```
-
-Start services directly when working on one side:
-
-```bash
-.venv/bin/python backend/app.py
-cd frontend && npm run dev
-```
-
-The frontend runs on `http://localhost:5173` and proxies API calls to the Flask backend.
-
-Current customer flow:
-
-- `/`: product introduction and start
-- `/proyecto`: yard, house, environment, and optional tariff data
-- `/plantas`: visual plant catalog and quantities
-- `/plan`: responsive SVG plan, compatibility decisions, irrigation, and estimated cost
 
 ## Run with Docker
+
+The local `.env` requires unique values for `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, and `DJANGO_SECRET_KEY`. Real values are ignored by Git; `.env.example` documents the names.
 
 ```bash
 make docker-up
 ```
 
 - Frontend: `http://localhost:5173`
-- Backend health: `http://localhost:5050/api/health`
-- Postgres: internal Docker network on `postgres:5432`
-- Redis: internal Docker network on `redis:6379`
+- Backend: `http://localhost:5050`
+- Health: `http://localhost:5050/api/health`
+- API documentation: `http://localhost:5050/api/docs/`
+- Django Admin: `http://localhost:5050/admin/`
 
-## API endpoints
+The backend container applies migrations and runs the idempotent catalog seed before Gunicorn starts. PostgreSQL and Redis are internal-only and are not published to the host.
+
+## Run locally
+
+Use Node `22.13.0` from `.nvmrc` and Python `3.12`.
+
+```bash
+python3.12 -m venv .venv
+make install
+make backend-migrate
+make backend-seed
+make check
+```
+
+Run Django directly:
+
+```bash
+cd backend
+../.venv/bin/python manage.py runserver 0.0.0.0:5050
+```
+
+Run React in another terminal:
+
+```bash
+cd frontend
+npm run dev
+```
+
+## API
+
+Compatibility endpoints used by the current frontend:
 
 - `GET /api/health`
 - `GET /api/plants`
 - `POST /api/plan`
 
-## Database and cache
+The persistent API is under `/api/v1/` and covers authentication, organizations, clients, projects, sites, catalog, layouts, validation, solver runs, irrigation, tariffs, quotes, budgets, expenses, and audit events. The canonical contract is generated at `/api/schema/` and rendered at `/api/docs/`.
 
-- Plant catalog records now load from Postgres when available.
-- Redis caches planner responses for repeated requests.
-- If the backend cannot reach Postgres, it falls back to the in-code seed catalog so the app still boots in degraded mode.
+Project planning is persisted with:
 
-## Engineering quality
-
-`make check` is the required local gate. It verifies Python and TypeScript formatting, lint rules, static types, backend coverage, frontend tests, and the production frontend build. GitHub Actions runs the same targets and then builds every Docker image. `make audit` checks Python and npm production dependencies for known vulnerabilities.
-
-`make frontend-e2e` uses Playwright to open all four routes at `1440x900` and `390x844`, verifies the main content is visible, rejects horizontal overflow, and checks that every mobile navigation destination remains reachable.
-
-Ruff intentionally replaces the older Black + isort + Flake8 combination. One fast tool owns Python formatting and linting, while MyPy remains responsible for static types.
-
-## GitHub automation
-
-GitHub Actions is configured in `.github/workflows/ci.yml`. It starts for pull requests targeting the repository, pushes to `main`, or manual dispatch. It is not active merely because the YAML exists locally: after the workflow is pushed, inspect the repository **Actions** tab or run:
-
-```bash
-gh workflow list --repo MatiasDW/Ruuf
-gh run list --repo MatiasDW/Ruuf --limit 10
-gh run watch --repo MatiasDW/Ruuf
+```text
+POST /api/v1/projects/{project_id}/generate-plan/
 ```
 
-Dependabot is configured in `.github/dependabot.yml`. Once that file exists on the default branch, GitHub checks npm, Python, Docker, and Actions dependencies weekly and opens isolated update pull requests. CI then determines whether each update still formats, typechecks, tests, builds, and passes responsive browser checks.
+Manual drag-and-drop edits create immutable revisions using optimistic concurrency:
 
-## Pricing note for Chile
+```text
+POST /api/v1/layouts/{layout_id}/revisions/
+{
+  "base_revision": 1,
+  "items": [{"plant_id": "quillay", "x_m": 4.5, "y_m": 3.2}]
+}
+```
 
-The irrigation cost model should be based on **water volume**:
+A stale `base_revision` returns `409 Conflict`. Invalid placements are saved as drafts with structured blocking issues so the UI can display red clearance rings instead of losing the user's edit.
 
-- estimate liters per week
-- convert to `m3/month`
-- apply provider tariff in `CLP/m3`
-- add any fixed monthly charge
+## Quality
 
-Do not model water price as a direct `CLP/m2` input unless it is a derived approximation for a specific scenario.
+```bash
+make check
+make frontend-e2e
+make audit
+```
+
+`make check` verifies formatting, lint, static types, pending Django migrations, backend coverage, frontend tests, and the production frontend build. The backend currently has integration coverage for authentication, tenancy, roles, planning persistence, revision conflicts, irrigation, solver execution, finance, and audit history.
+
+## Water pricing
+
+Water is priced by volume, not area. The engine converts plant demand from liters per week to `m3/month`, adjusts for irrigation efficiency, and applies versioned fixed, potable-water, and sewer charges. A future tariff importer must preserve provider source URL, effective dates, review status, and historical versions.

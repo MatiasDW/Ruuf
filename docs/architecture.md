@@ -1,40 +1,30 @@
 # Architecture
 
-> This document describes the running prototype. The evaluated production target and incremental migration plan are in [`planning/04-architecture-and-stack.md`](planning/04-architecture-and-stack.md).
+The running application is a modular monolith with asynchronous workers:
 
-## Decision
+```text
+React + TypeScript -> Django REST API -> PostgreSQL
+                              |       -> Redis cache
+                              +------ -> Celery worker
+```
 
-The product now uses:
+## Boundaries
 
-- **React + Vite** for the interface
-- **Flask** for the planning API
-- **Docker Compose** for local orchestration
+- `identity`: accounts, organizations, memberships, and clients
+- `projects`: projects, measured sites, and site features
+- `catalog`: botanical identity, cultivars, and versioned rules
+- `planning`: immutable layout revisions, items, issues, and solver runs
+- `irrigation`: providers, tariff versions, zones, and estimates
+- `finance`: price books, quotes, budgets, and expenses
+- `audit`: organization-scoped domain events
+- `domain`: geometry and irrigation calculations without Django or HTTP imports
 
-## Why Flask instead of Django
+React retains immediate editor feedback. Django performs canonical authorization, validation, persistence, and audit. PostgreSQL is the source of truth; Redis contains only cache, queue, and ephemeral coordination data.
 
-This project is still validating the domain:
+## Versioning
 
-- plant catalog shape
-- fit rules
-- irrigation rules
-- Chilean tariff integration
+Every saved layout edit creates a new `LayoutVersion`. The client sends `base_revision`; Django locks the layout row and returns `409 Conflict` if another edit already advanced it. Previous versions and approved snapshots are never rewritten.
 
-Flask is sufficient for the current compact API layer around planning logic. The expanded product plan now includes the capabilities that justify an incremental migration to Django:
+The planning engine remains deterministic and grid-based in this phase. It is suitable for product validation, not a certified landscape or hydraulic design.
 
-- user accounts
-- back-office plant management
-- quoting workflows
-- CRM-style project records
-- many relational models and admin tooling
-
-## Current request flow
-
-1. React loads `/api/plants`.
-2. The user defines the yard, obstacle, style, sunlight, and plant wishlist.
-3. React posts the payload to `/api/plan`.
-4. Flask runs the landscape planner and irrigation estimate.
-5. React renders the layout and cost summary.
-
-## Current limitation
-
-The planner is still a grid-based greedy placer over a rectangular yard. It is an MVP, not a final optimization engine.
+The expanded design and production evolution are maintained in [`planning/04-architecture-and-stack.md`](planning/04-architecture-and-stack.md).

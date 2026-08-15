@@ -1,0 +1,162 @@
+from __future__ import annotations
+
+from decimal import Decimal
+from typing import Any
+
+from django.core.management.base import BaseCommand
+from django.db import transaction
+
+from catalog.models import PlantCultivar, PlantSpecies
+
+PLANTS: tuple[dict[str, Any], ...] = (
+    {
+        "slug": "quillay",
+        "display_name": "Quillay",
+        "scientific_name": "Quillaja saponaria",
+        "origin": "native",
+        "category": "tree",
+        "spacing": "2.50",
+        "structure": "2.00",
+        "sunlight": ["full_sun"],
+        "water_need": "low",
+        "liters": "60.00",
+        "styles": ["native", "mediterranean"],
+        "color": "#7ea16b",
+    },
+    {
+        "slug": "jacaranda",
+        "display_name": "Jacaranda",
+        "scientific_name": "Jacaranda mimosifolia",
+        "origin": "exotic",
+        "category": "tree",
+        "spacing": "3.00",
+        "structure": "2.50",
+        "sunlight": ["full_sun"],
+        "water_need": "medium",
+        "liters": "85.00",
+        "styles": ["lush", "formal"],
+        "color": "#8b6dbf",
+    },
+    {
+        "slug": "olive",
+        "display_name": "Olivo",
+        "scientific_name": "Olea europaea",
+        "origin": "exotic",
+        "category": "tree",
+        "spacing": "2.20",
+        "structure": "1.80",
+        "sunlight": ["full_sun"],
+        "water_need": "low",
+        "liters": "55.00",
+        "styles": ["mediterranean", "formal"],
+        "color": "#94a86f",
+    },
+    {
+        "slug": "lavender",
+        "display_name": "Lavanda",
+        "scientific_name": "Lavandula angustifolia",
+        "origin": "exotic",
+        "category": "flower",
+        "spacing": "0.60",
+        "structure": "0.20",
+        "sunlight": ["full_sun"],
+        "water_need": "low",
+        "liters": "8.00",
+        "styles": ["mediterranean", "formal"],
+        "color": "#b48ad6",
+    },
+    {
+        "slug": "rosemary",
+        "display_name": "Romero",
+        "scientific_name": "Salvia rosmarinus",
+        "origin": "exotic",
+        "category": "shrub",
+        "spacing": "0.70",
+        "structure": "0.30",
+        "sunlight": ["full_sun", "partial_shade"],
+        "water_need": "low",
+        "liters": "9.00",
+        "styles": ["mediterranean", "formal"],
+        "color": "#5b8c5a",
+    },
+    {
+        "slug": "agapanthus",
+        "display_name": "Agapanto",
+        "scientific_name": "Agapanthus africanus",
+        "origin": "exotic",
+        "category": "flower",
+        "spacing": "0.70",
+        "structure": "0.20",
+        "sunlight": ["full_sun", "partial_shade"],
+        "water_need": "medium",
+        "liters": "12.00",
+        "styles": ["formal", "lush"],
+        "color": "#7ca3d8",
+    },
+    {
+        "slug": "coiron",
+        "display_name": "Coiron",
+        "scientific_name": "Pappostipa speciosa",
+        "origin": "native",
+        "category": "grass",
+        "spacing": "0.80",
+        "structure": "0.20",
+        "sunlight": ["full_sun"],
+        "water_need": "low",
+        "liters": "7.00",
+        "styles": ["native", "mediterranean"],
+        "color": "#c2b280",
+    },
+    {
+        "slug": "hydrangea",
+        "display_name": "Hortensia",
+        "scientific_name": "Hydrangea macrophylla",
+        "origin": "exotic",
+        "category": "flower",
+        "spacing": "0.90",
+        "structure": "0.40",
+        "sunlight": ["partial_shade", "shade"],
+        "water_need": "high",
+        "liters": "18.00",
+        "styles": ["lush"],
+        "color": "#7fb5d6",
+    },
+)
+
+
+class Command(BaseCommand):
+    help = "Create or update the provisional plant catalog used by the planner."
+
+    @transaction.atomic
+    def handle(self, *args: object, **options: object) -> None:
+        for item in PLANTS:
+            species, _ = PlantSpecies.objects.update_or_create(
+                scientific_name=item["scientific_name"],
+                defaults={
+                    "slug": item["slug"],
+                    "common_names": {"es-CL": [item["display_name"]]},
+                    "origin_chile": item["origin"],
+                    "source_references": [],
+                },
+            )
+            PlantCultivar.objects.update_or_create(
+                slug=item["slug"],
+                defaults={
+                    "species": species,
+                    "display_name": item["display_name"],
+                    "category": item["category"],
+                    "canopy_radius_m": Decimal(item["spacing"]),
+                    "recommended_spacing_m": Decimal(item["spacing"]),
+                    "root_caution_radius_m": Decimal(item["spacing"]),
+                    "structure_clearance_m": Decimal(item["structure"]),
+                    "sunlight": item["sunlight"],
+                    "water_need": item["water_need"],
+                    "liters_per_week_estimate": Decimal(item["liters"]),
+                    "style_tags": item["styles"],
+                    "color": item["color"],
+                    "provenance": "prototype_unverified",
+                    "is_verified": False,
+                    "is_active": True,
+                },
+            )
+        self.stdout.write(self.style.SUCCESS(f"Seeded {len(PLANTS)} provisional plants."))

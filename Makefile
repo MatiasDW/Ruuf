@@ -3,8 +3,9 @@ NPM ?= npm
 
 .PHONY: help install backend-install frontend-install format format-check lint typecheck test build check audit \
 	backend-format backend-format-check backend-lint backend-typecheck backend-test backend-check \
+	backend-schema \
 	frontend-format frontend-format-check frontend-lint frontend-typecheck frontend-test frontend-e2e frontend-build frontend-check \
-	docker-build docker-up docker-down docker-logs
+	backend-migrations backend-migrate backend-seed backend-shell docker-build docker-up docker-down docker-logs
 
 help:
 	@printf '%s\n' \
@@ -13,6 +14,8 @@ help:
 		'make check         Run format, lint, type, test, and build checks' \
 		'make frontend-e2e  Test all views at desktop and mobile sizes' \
 		'make audit         Audit Python and npm production dependencies' \
+		'make backend-migrate Apply Django database migrations' \
+		'make backend-seed  Seed the provisional plant catalog' \
 		'make docker-up     Build and start the local stack'
 
 install: backend-install frontend-install
@@ -57,7 +60,22 @@ backend-typecheck:
 backend-test:
 	$(PYTHON) -m pytest --cov=backend --cov-report=term-missing
 
-backend-check: backend-format-check backend-lint backend-typecheck backend-test
+backend-migrations:
+	$(PYTHON) backend/manage.py makemigrations --check --dry-run
+
+backend-schema:
+	$(PYTHON) backend/manage.py spectacular --file /tmp/ruuf-openapi.yml --validate --fail-on-warn
+
+backend-migrate:
+	$(PYTHON) backend/manage.py migrate
+
+backend-seed:
+	$(PYTHON) backend/manage.py seed_catalog
+
+backend-shell:
+	$(PYTHON) backend/manage.py shell
+
+backend-check: backend-format-check backend-lint backend-typecheck backend-migrations backend-schema backend-test
 
 frontend-format:
 	cd frontend && $(NPM) run format
