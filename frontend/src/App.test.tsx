@@ -97,7 +97,7 @@ describe("App routes", () => {
   it.each([
     ["/proyecto", "Cuéntanos cómo es el espacio."],
     ["/plantas", "Elige lo que te gustaría ver crecer."],
-    ["/plan", "Tu jardín, organizado con criterios reales."],
+    ["/plan", "Plano editable del jardín"],
   ])("renders %s as an independent view", async (path, heading) => {
     stubInitialApi();
     window.history.pushState({}, "", path);

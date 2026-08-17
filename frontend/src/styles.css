@@ -1,7 +1,7 @@
 :root {
-  font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+  font-family: "Inter", sans-serif;
   color: #183126;
-  background: #f3f1e9;
+  background: #f8faf8;
   font-synthesis: none;
   line-height: 1.45;
   --ink: #183126;
@@ -9,8 +9,8 @@
   --forest: #173e2c;
   --forest-light: #2f6748;
   --sage: #dfe9d9;
-  --cream: #f3f1e9;
-  --paper: #fffdf7;
+  --cream: #f8faf8;
+  --paper: #ffffff;
   --clay: #ba7655;
   --line: rgba(24, 49, 38, 0.13);
   --shadow: 0 24px 70px rgba(32, 54, 41, 0.1);
@@ -29,8 +29,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: radial-gradient(circle at 10% -5%, rgba(186, 210, 179, 0.68), transparent 29rem),
-    linear-gradient(180deg, #f8f6ef 0%, #eeede4 100%);
+  background: radial-gradient(circle at 8% 2%, rgba(201, 231, 204, 0.48), transparent 31rem),
+    #f8faf8;
 }
 
 button,
@@ -63,6 +63,7 @@ p {
 h1,
 h2,
 h3 {
+  font-family: "Montserrat", sans-serif;
   text-wrap: balance;
 }
 
@@ -101,7 +102,7 @@ h3 {
   border-radius: 50% 50% 48% 20%;
   color: #f8f6ef;
   background: var(--forest);
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 1.35rem;
   transform: rotate(-8deg);
 }
@@ -112,7 +113,7 @@ h3 {
 }
 
 .brand strong {
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 1.3rem;
   letter-spacing: -0.02em;
 }
@@ -273,7 +274,7 @@ h3 {
 .hero-copy h1 {
   max-width: 720px;
   margin-bottom: 24px;
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: clamp(3.2rem, 5.8vw, 6.6rem);
   font-weight: 500;
   letter-spacing: -0.065em;
@@ -482,7 +483,7 @@ h3 {
 .section-intro h2 {
   max-width: 720px;
   margin: 0;
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: clamp(2.5rem, 4vw, 4.8rem);
   font-weight: 500;
   line-height: 1;
@@ -514,7 +515,7 @@ h3 {
 
 .process-grid h3 {
   margin: 60px 0 12px;
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 1.65rem;
   font-weight: 500;
 }
@@ -541,7 +542,7 @@ h3 {
 .workflow-heading h1,
 .plan-heading h1 {
   margin-bottom: 16px;
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: clamp(2.7rem, 5vw, 5rem);
   font-weight: 500;
   letter-spacing: -0.05em;
@@ -613,7 +614,7 @@ h3 {
 
 .card-heading h2 {
   margin-bottom: 4px;
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 1.65rem;
   font-weight: 600;
 }
@@ -944,7 +945,7 @@ h3 {
 .plant-portrait span {
   position: relative;
   z-index: 1;
-  font-family: "Iowan Old Style", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 1.35rem;
   font-weight: 700;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
@@ -965,7 +966,7 @@ h3 {
 .plant-card h2 {
   overflow: hidden;
   margin: 3px 0 7px;
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 1.25rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1013,7 +1014,7 @@ h3 {
 
 .selection-count {
   display: block;
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 5rem;
   font-weight: 500;
   line-height: 0.9;
@@ -1127,7 +1128,7 @@ h3 {
 
 .map-panel-header h2 {
   margin: 2px 0 0;
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 1.35rem;
 }
 
@@ -1137,6 +1138,7 @@ h3 {
   gap: 10px;
 }
 
+.history-control,
 .segmented-control,
 .zoom-control {
   display: inline-flex;
@@ -1147,6 +1149,7 @@ h3 {
   background: #f1f2eb;
 }
 
+.history-control button,
 .segmented-control button,
 .zoom-control button {
   min-width: 44px;
@@ -1156,6 +1159,36 @@ h3 {
   border-radius: 999px;
   color: #66756c;
   background: transparent;
+}
+
+.history-control button {
+  min-width: 88px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.history-control button:disabled,
+.segmented-control button.active {
+  color: #fffdf7;
+  background: var(--forest);
+}
+
+.history-control button:disabled {
+  color: #94a197;
+  background: transparent;
+  opacity: 0.7;
+}
+
+.history-control button:not(:disabled):focus-visible,
+.segmented-control button:focus-visible,
+.zoom-control button:focus-visible {
+  outline: 2px solid rgba(22, 62, 44, 0.22);
+  outline-offset: 2px;
+}
+
+.history-control button:not(:disabled):hover {
+  color: #fffdf7;
+  background: var(--forest-light);
 }
 
 .segmented-control button.active {
@@ -1195,7 +1228,7 @@ h3 {
 .map-label,
 .plant-label {
   fill: #6d766f;
-  font-family: "Avenir Next", sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 42px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1298,7 +1331,7 @@ h3 {
 }
 
 .summary-primary strong {
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 2.7rem;
   font-weight: 500;
   letter-spacing: -0.04em;
@@ -1329,7 +1362,7 @@ h3 {
 
 .sidebar-heading h2 {
   margin: 0;
-  font-family: "Iowan Old Style", "Baskerville", serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 1.45rem;
 }
 
@@ -1880,5 +1913,808 @@ h3 {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Stitch-aligned planning workspace */
+.workflow-view {
+  max-width: 1280px;
+  padding-top: clamp(38px, 5vw, 64px);
+}
+
+.workflow-heading {
+  max-width: 720px;
+  margin-bottom: 34px;
+}
+
+.workflow-heading h1 {
+  max-width: 680px;
+  font-size: clamp(2.35rem, 4.4vw, 3.75rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.04;
+}
+
+.workflow-heading > p:not(.eyebrow) {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.form-card,
+.project-summary-card,
+.selection-summary,
+.plant-card,
+.map-panel,
+.summary-card {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 38px rgba(45, 75, 55, 0.07);
+}
+
+.card-heading h2,
+.plant-card h2,
+.selection-count {
+  font-family: "Montserrat", sans-serif;
+}
+
+.shape-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0 22px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f2f4f2;
+}
+
+.shape-selector > span {
+  margin: 0 auto 0 8px;
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.shape-selector button {
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  color: #596a60;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.shape-selector button.active {
+  color: #ffffff;
+  background: var(--forest);
+  box-shadow: 0 5px 14px rgba(22, 52, 34, 0.18);
+}
+
+.technical-plan {
+  max-width: 1680px;
+  padding: 26px clamp(18px, 3vw, 48px) 70px;
+}
+
+.technical-heading {
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.technical-heading h1 {
+  margin-bottom: 6px;
+  font-size: clamp(1.85rem, 3vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+
+.technical-heading > div > p:last-child {
+  margin-bottom: 0;
+  font-size: 0.92rem;
+}
+
+.technical-workspace {
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 16px;
+}
+
+.technical-map-panel {
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.technical-map-header {
+  min-height: 76px;
+  padding: 12px 16px;
+}
+
+.technical-map-header h2 {
+  font-family: "Montserrat", sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.technical-map-header .map-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.segmented-control button.water-active {
+  background: #245c69;
+}
+
+.zoom-control button:nth-child(2) {
+  min-width: 58px;
+  color: #68776e;
+  font-size: 0.72rem;
+}
+
+.technical-canvas {
+  display: block;
+  height: auto;
+  min-height: 570px;
+  max-height: min(68vh, 720px);
+  aspect-ratio: var(--yard-aspect);
+  padding: 0;
+  background: #e6e9e7;
+}
+
+.garden-editor {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #e6e9e7;
+  touch-action: none;
+}
+
+.garden-editor .garden-map {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  filter: none;
+  outline: none;
+  touch-action: none;
+  user-select: none;
+}
+
+.dimension-layer text,
+.north-arrow text {
+  fill: #53665b;
+  font-family: "Inter", sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.north-arrow path {
+  fill: var(--forest);
+  opacity: 0.84;
+}
+
+.house-footprint {
+  cursor: grab;
+  outline: none;
+}
+
+.house-footprint:active,
+.is-dragging .house-footprint {
+  cursor: grabbing;
+}
+
+.house-footprint rect,
+.house-footprint polygon {
+  fill: #fffefd;
+  stroke: #7e8781;
+  stroke-width: 11;
+  vector-effect: non-scaling-stroke;
+  transition:
+    stroke 160ms ease,
+    fill 160ms ease;
+}
+
+.house-footprint:hover rect,
+.house-footprint:hover polygon,
+.house-footprint.selected rect,
+.house-footprint.selected polygon {
+  fill: #ffffff;
+  stroke: #163422;
+}
+
+.house-footprint.has-conflict rect,
+.house-footprint.has-conflict polygon {
+  stroke: #b42318;
+}
+
+.house-footprint text {
+  pointer-events: none;
+  fill: #3f4c44;
+  font-family: "Montserrat", sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.house-footprint .house-dimensions {
+  fill: #6c7971;
+  font-family: "Inter", sans-serif;
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.resize-handles circle {
+  cursor: nwse-resize;
+  fill: #ffffff;
+  stroke: #163422;
+  stroke-width: 8;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 5px 8px rgba(22, 52, 34, 0.2));
+}
+
+.resize-handles circle:nth-child(2),
+.resize-handles circle:nth-child(4) {
+  cursor: nesw-resize;
+}
+
+.plant-marker {
+  cursor: grab;
+  outline: none;
+}
+
+.plant-marker:active,
+.is-dragging .plant-marker.selected {
+  cursor: grabbing;
+}
+
+.plant-marker:hover,
+.plant-marker:focus-visible,
+.plant-marker.selected {
+  opacity: 1;
+}
+
+.clearance-ring {
+  opacity: 0.18;
+  stroke-width: 8;
+  stroke-dasharray: 18 14;
+  vector-effect: non-scaling-stroke;
+}
+
+.plant-marker.selected .clearance-ring {
+  opacity: 0.28;
+  stroke-width: 11;
+}
+
+.plant-marker.has-conflict .clearance-ring {
+  opacity: 0.24;
+  stroke-width: 12;
+}
+
+.plant-core {
+  stroke-width: 9;
+  vector-effect: non-scaling-stroke;
+}
+
+.plant-marker.selected .plant-core {
+  stroke: #163422;
+  stroke-width: 13;
+}
+
+.plant-label {
+  pointer-events: none;
+  fill: #ffffff;
+  font-family: "Montserrat", sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.sprinkler-head {
+  fill: #ffffff;
+  stroke: #2f7f91;
+  stroke-width: 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.water-coverage {
+  stroke: #4b9db1;
+  stroke-width: 5;
+  stroke-dasharray: 15 13;
+  vector-effect: non-scaling-stroke;
+}
+
+.water-coverage.water-low {
+  opacity: 0.68;
+}
+
+.water-coverage.water-medium {
+  opacity: 0.82;
+}
+
+.water-coverage.water-high {
+  opacity: 1;
+}
+
+.pipe-main,
+.pipe-branch {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.pipe-main {
+  stroke: #20677a;
+  stroke-width: 12;
+}
+
+.pipe-branch {
+  stroke: #5aa7bb;
+  stroke-width: 7;
+  stroke-dasharray: 14 10;
+}
+
+.pipe-flow {
+  animation: water-flow 1.2s linear infinite;
+}
+
+@keyframes water-flow {
+  to {
+    stroke-dashoffset: -48;
+  }
+}
+
+.zone-valve {
+  fill: #ffffff;
+  stroke: #20677a;
+  stroke-width: 7;
+  vector-effect: non-scaling-stroke;
+}
+
+.zone-label {
+  fill: #245c69;
+  font-family: "Inter", sans-serif;
+  font-size: 27px;
+  font-weight: 700;
+}
+
+.water-source circle {
+  fill: #163422;
+  stroke: #ffffff;
+  stroke-width: 7;
+  vector-effect: non-scaling-stroke;
+}
+
+.water-source path {
+  fill: #bce6ef;
+}
+
+.map-scale,
+.map-instruction {
+  position: absolute;
+  z-index: 4;
+  border: 1px solid rgba(114, 121, 114, 0.26);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 24px rgba(22, 52, 34, 0.1);
+  backdrop-filter: blur(14px);
+  pointer-events: none;
+}
+
+.map-scale {
+  top: 14px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: #46584d;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.map-scale i {
+  position: relative;
+  display: block;
+  width: 58px;
+  height: 7px;
+  border: 1px solid #46584d;
+  border-top: 0;
+}
+
+.map-instruction {
+  right: 14px;
+  bottom: 14px;
+  display: grid;
+  max-width: 330px;
+  gap: 2px;
+  padding: 11px 13px;
+  border-radius: 12px;
+}
+
+.map-instruction strong {
+  color: var(--ink);
+  font-size: 0.76rem;
+}
+
+.map-instruction span {
+  color: #66756c;
+  font-size: 0.68rem;
+}
+
+.technical-map-footer {
+  min-height: 58px;
+  padding: 11px 16px;
+}
+
+.pipe-swatch {
+  display: inline-block;
+  width: 28px;
+  height: 0;
+  border-top: 4px solid #20677a;
+  border-radius: 99px;
+}
+
+.pipe-swatch.branch {
+  border-top: 3px dashed #5aa7bb;
+}
+
+.coverage-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 1px dashed #4b9db1;
+  border-radius: 50%;
+  background: rgba(90, 167, 187, 0.16);
+}
+
+.technical-sidebar {
+  position: sticky;
+  top: 92px;
+}
+
+.technical-sidebar .summary-card {
+  padding: 20px;
+  border-radius: 16px;
+}
+
+.editor-inspector {
+  min-height: 184px;
+}
+
+.inspector-title,
+.overview-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.inspector-title {
+  justify-content: flex-start;
+}
+
+.inspector-title .eyebrow,
+.overview-card-heading .eyebrow {
+  margin-bottom: 3px;
+}
+
+.inspector-title h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.selection-icon {
+  display: grid;
+  flex: 0 0 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  color: #ffffff;
+  background: var(--forest);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.water-inspector .selection-icon {
+  background: #245c69;
+}
+
+.inspector-help {
+  margin: 15px 0 0;
+  color: #66756c;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.editor-health {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 11px;
+  border-radius: 10px;
+  color: #376848;
+  background: #e7f1e5;
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+
+.editor-health > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4b9566;
+}
+
+.editor-health.has-errors {
+  color: #8f3228;
+  background: #fff0ed;
+}
+
+.editor-health.has-errors > span {
+  background: #c74335;
+}
+
+.shape-selector.compact {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 16px 0 12px;
+}
+
+.inspector-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.inspector-fields label {
+  display: grid;
+  gap: 4px;
+  color: #65736a;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.inspector-fields label > span:last-child {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #f8faf8;
+  font-size: 0.7rem;
+}
+
+.inspector-fields input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  font-weight: 700;
+  outline: none;
+}
+
+.selection-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+
+.selection-facts div {
+  padding: 9px;
+  border-radius: 9px;
+  background: #f2f4f2;
+}
+
+.selection-facts dt {
+  color: #718078;
+  font-size: 0.62rem;
+}
+
+.selection-facts dd {
+  margin: 3px 0 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.inline-conflicts,
+.valid-placement {
+  display: grid;
+  gap: 3px;
+  margin: 14px 0 0;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+}
+
+.inline-conflicts {
+  color: #8f3228;
+  background: #fff0ed;
+}
+
+.valid-placement {
+  color: #376848;
+  background: #e7f1e5;
+  line-height: 1.45;
+}
+
+.plan-overview-card {
+  background: #163422;
+}
+
+.overview-card-heading > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  color: #163422;
+  background: #c9e7cc;
+}
+
+.technical-sidebar .summary-primary strong {
+  font-family: "Montserrat", sans-serif;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.recommendation-card .recommendation-list {
+  max-height: 270px;
+}
+
+@media (max-width: 1180px) {
+  .technical-workspace {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+
+  .technical-map-header .map-actions {
+    align-items: center;
+    flex-direction: row;
+  }
+}
+
+@media (max-width: 900px) {
+  .technical-plan {
+    padding-top: 20px;
+  }
+
+  .technical-heading {
+    align-items: flex-start;
+  }
+
+  .technical-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .technical-sidebar {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .technical-sidebar .editor-inspector {
+    grid-column: 1 / -1;
+  }
+
+  .technical-sidebar .dark-card {
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .workflow-view,
+  .plan-view {
+    padding-top: 28px;
+  }
+
+  .workflow-heading h1,
+  .plan-heading h1 {
+    font-size: clamp(2rem, 10vw, 2.8rem);
+    line-height: 1.05;
+  }
+
+  .technical-plan {
+    padding: 14px 10px 28px;
+  }
+
+  .technical-heading {
+    gap: 10px;
+    padding: 0 4px;
+  }
+
+  .technical-heading > div > p:last-child {
+    font-size: 0.82rem;
+  }
+
+  .technical-heading .plan-heading-actions {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .technical-heading .button {
+    min-height: 44px;
+    padding: 9px 14px;
+  }
+
+  .technical-heading .fit-badge {
+    width: auto;
+    min-height: 44px;
+  }
+
+  .technical-map-panel {
+    border-radius: 16px;
+  }
+
+  .technical-map-header {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .technical-map-header .map-actions {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .history-control {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .history-control button {
+    flex: 1 1 0;
+  }
+
+  .technical-canvas {
+    height: auto;
+    min-height: 320px;
+    max-height: 68dvh;
+    aspect-ratio: var(--yard-aspect);
+  }
+
+  .garden-editor .garden-map {
+    width: 100%;
+  }
+
+  .map-instruction {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    max-width: none;
+  }
+
+  .map-scale {
+    top: 8px;
+    left: 8px;
+  }
+
+  .technical-map-footer {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .technical-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .technical-sidebar .editor-inspector {
+    grid-column: auto;
+  }
+
+  .shape-selector {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .shape-selector > span {
+    flex: 1 0 100%;
+    margin-bottom: 4px;
   }
 }

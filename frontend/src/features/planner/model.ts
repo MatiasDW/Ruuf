@@ -21,6 +21,7 @@ export const defaultForm: PlannerForm = {
   obstacle_height: 5,
   obstacle_x: 4,
   obstacle_y: 4,
+  house_shape: "rectangle",
   water_price_clp_per_m3: 1200,
   fixed_charge_clp: 3000,
 };

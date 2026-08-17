@@ -7,8 +7,9 @@ Ruuf is a residential landscaping planner with a responsive React editor and a p
 - responsive customer flow at `/`, `/proyecto`, `/plantas`, and `/plan`
 - provisional catalog of trees, shrubs, flowers, and grasses
 - deterministic placement with yard, obstacle, sunlight, and plant-spacing checks
-- structured conflict rings for drag-and-drop validation
-- irrigation volume, efficiency range, and Chilean `CLP/m3` cost estimates
+- interactive metric plan with draggable plants and an editable rectangular or L-shaped house
+- live boundary, house, and plant-spacing validation with visible clearance rings
+- irrigation L1 overlay with demand zones, suggested pipes, emitter reach, volume, and Chilean `CLP/m3` costs
 - session authentication with CSRF protection
 - organizations and roles: owner, admin, designer, finance, and viewer
 - clients, projects, versioned sites, layouts, items, and validation issues
@@ -65,6 +66,8 @@ make docker-up
 - Django Admin: `http://localhost:5050/admin/`
 
 The backend container applies migrations and runs the idempotent catalog seed before Gunicorn starts. PostgreSQL and Redis are internal-only and are not published to the host.
+
+Set `BACKEND_PORT` and `FRONTEND_PORT` in `.env` when the default ports are already used by another Conductor workspace.
 
 ## Development workflow
 

@@ -81,7 +81,7 @@ const views = [
   { path: "/", heading: /Un jardín que se siente tuyo/i },
   { path: "/proyecto", heading: "Cuéntanos cómo es el espacio." },
   { path: "/plantas", heading: "Elige lo que te gustaría ver crecer." },
-  { path: "/plan", heading: "Tu jardín, organizado con criterios reales." },
+  { path: "/plan", heading: "Plano editable del jardín" },
 ];
 
 for (const view of views) {
@@ -103,4 +103,99 @@ test("mobile navigation keeps every step reachable", async ({ page, isMobile }) 
   await expect(navigation.getByRole("link", { name: /Espacio/ })).toBeVisible();
   await expect(navigation.getByRole("link", { name: /Plantas/ })).toBeVisible();
   await expect(navigation.getByRole("link", { name: /Mi plan/ })).toBeVisible();
+});
+
+test("the technical plan exposes real editing controls", async ({ page }) => {
+  await page.goto("/plan");
+
+  const plant = page.getByTestId("plant-marker-0");
+  const plantCore = plant.locator(".plant-core");
+  const initialX = await plantCore.getAttribute("cx");
+  await plant.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(plantCore).not.toHaveAttribute("cx", initialX ?? "");
+
+  await page.getByTestId("house-footprint").click();
+  await expect(page.getByTestId("house-resize-se")).toBeVisible();
+  await page.getByRole("button", { name: "En L" }).last().click();
+  await expect(page.getByTestId("house-footprint").locator("polygon")).toBeVisible();
+});
+
+test("editor history buttons undo and redo a multi-step plant drag", async ({ page }) => {
+  await page.goto("/plan");
+
+  const plant = page.getByTestId("plant-marker-0");
+  const plantCore = plant.locator(".plant-core");
+  const initialX = await plantCore.getAttribute("cx");
+  const initialY = await plantCore.getAttribute("cy");
+  const box = await plant.boundingBox();
+  if (!box) {
+    throw new Error("Plant marker did not produce a draggable bounding box.");
+  }
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 30, box.y + box.height / 2 + 20, { steps: 2 });
+  await page.mouse.move(box.x + box.width / 2 + 65, box.y + box.height / 2 + 35, { steps: 3 });
+  await page.mouse.move(box.x + box.width / 2 + 90, box.y + box.height / 2 + 55, { steps: 4 });
+  await page.mouse.up();
+
+  await expect(plantCore).not.toHaveAttribute("cx", initialX ?? "");
+  await expect(plantCore).not.toHaveAttribute("cy", initialY ?? "");
+
+  const movedX = await plantCore.getAttribute("cx");
+  const movedY = await plantCore.getAttribute("cy");
+  await page.getByRole("button", { name: "Deshacer cambio del editor" }).click();
+  await expect(plantCore).toHaveAttribute("cx", initialX ?? "");
+  await expect(plantCore).toHaveAttribute("cy", initialY ?? "");
+
+  await page.getByRole("button", { name: "Rehacer cambio del editor" }).click();
+  await expect(plantCore).toHaveAttribute("cx", movedX ?? "");
+  await expect(plantCore).toHaveAttribute("cy", movedY ?? "");
+});
+
+test("editor history buttons undo and redo house changes", async ({ page }) => {
+  await page.goto("/plan");
+
+  await page.getByTestId("house-footprint").click();
+  await page.getByRole("button", { name: "En L" }).last().click();
+  await expect(page.getByTestId("house-footprint").locator("polygon")).toBeVisible();
+
+  await page.getByRole("button", { name: "Deshacer cambio del editor" }).click();
+  await expect(page.getByTestId("house-footprint").locator("rect")).toBeVisible();
+
+  await page.getByRole("button", { name: "Rehacer cambio del editor" }).click();
+  await expect(page.getByTestId("house-footprint").locator("polygon")).toBeVisible();
+});
+
+test("a plant can be dragged directly on the plan", async ({ page, isMobile }) => {
+  test.skip(isMobile, "The mouse gesture is covered on the desktop editor.");
+  await page.goto("/plan");
+
+  const plant = page.getByTestId("plant-marker-0");
+  const plantCore = plant.locator(".plant-core");
+  const initialX = await plantCore.getAttribute("cx");
+  const box = await plant.boundingBox();
+  if (!box) {
+    throw new Error("Plant marker did not produce a draggable bounding box.");
+  }
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 90, box.y + box.height / 2 + 55, {
+    steps: 5,
+  });
+  await page.mouse.up();
+
+  await expect(plantCore).not.toHaveAttribute("cx", initialX ?? "");
+});
+
+test("irrigation mode renders pipes and emitter reach", async ({ page }) => {
+  await page.goto("/plan");
+  await page.getByRole("button", { name: "Riego", exact: true }).click();
+
+  await expect(page.locator(".irrigation-layer")).toBeVisible();
+  await expect(page.locator(".pipe-main")).toHaveCount(1);
+  await expect(page.locator(".pipe-branch")).toHaveCount(1);
+  await expect(page.locator(".water-coverage")).toHaveCount(1);
 });

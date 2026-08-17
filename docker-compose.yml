@@ -47,11 +47,11 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY must be set in .env}
       DJANGO_DEBUG: "1"
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
-      CSRF_TRUSTED_ORIGINS: http://localhost:5173
-      CORS_ORIGINS: http://localhost:5173
+      CSRF_TRUSTED_ORIGINS: http://localhost:${FRONTEND_PORT:-5173}
+      CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-5173}
       RUN_MIGRATIONS: "1"
     ports:
-      - "5050:8000"
+      - "${BACKEND_PORT:-5050}:8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 10s
@@ -87,7 +87,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT:-5173}:5173"
 
 volumes:
   postgres_data:

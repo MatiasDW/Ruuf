@@ -90,6 +90,23 @@ export function ProjectView({ form, onFormChange }: ProjectViewProps) {
                 <p>Ubicación aproximada dentro del terreno. No requiere un plano técnico.</p>
               </div>
             </div>
+            <div className="shape-selector" role="group" aria-label="Forma de la casa">
+              <span>Forma de la huella</span>
+              <button
+                className={form.house_shape === "rectangle" ? "active" : ""}
+                type="button"
+                onClick={() => onFormChange("house_shape", "rectangle")}
+              >
+                Rectangular
+              </button>
+              <button
+                className={form.house_shape === "l_shape" ? "active" : ""}
+                type="button"
+                onClick={() => onFormChange("house_shape", "l_shape")}
+              >
+                En L
+              </button>
+            </div>
             <div className="field-grid four-columns">
               <NumberField
                 label="Ancho"

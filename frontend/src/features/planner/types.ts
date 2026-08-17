@@ -3,6 +3,7 @@ export type WaterNeed = "low" | "medium" | "high";
 export type Sunlight = "full_sun" | "partial_shade" | "shade";
 export type LandscapeStyle = "mediterranean" | "native" | "formal" | "lush";
 export type FilterMode = "type" | "water";
+export type HouseShape = "rectangle" | "l_shape";
 
 export interface Plant {
   id: string;
@@ -32,9 +33,15 @@ export interface PlannerForm {
   obstacle_height: number;
   obstacle_x: number;
   obstacle_y: number;
+  house_shape: HouseShape;
   water_price_clp_per_m3: number;
   fixed_charge_clp: number;
 }
+
+export type HouseFormFields = Pick<
+  PlannerForm,
+  "obstacle_width" | "obstacle_height" | "obstacle_x" | "obstacle_y" | "house_shape"
+>;
 
 export interface PlanPayload {
   site: {
