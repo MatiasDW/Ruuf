@@ -22,35 +22,42 @@ from projects.models import Project, Site, SiteFeature, SiteVersion
 
 
 def organization_id_for(instance: object) -> UUID | None:
-    if isinstance(instance, Organization):
-        return instance.id
-    if isinstance(instance, Membership | Client | Project | PriceBook):
-        return instance.organization_id
-    if isinstance(instance, Site):
-        return instance.project.organization_id
-    if isinstance(instance, SiteVersion):
-        return instance.site.project.organization_id
-    if isinstance(instance, SiteFeature):
-        return instance.site_version.site.project.organization_id
-    if isinstance(instance, Layout):
-        return instance.project.organization_id
-    if isinstance(instance, LayoutVersion):
-        return instance.layout.project.organization_id
-    if isinstance(instance, LayoutItem):
-        return instance.layout_version.layout.project.organization_id
-    if isinstance(instance, ValidationIssue | SolverRun | IrrigationEstimate | IrrigationZone):
-        return instance.layout_version.layout.project.organization_id
-    if isinstance(instance, PriceItem):
-        return instance.price_book.organization_id
-    if isinstance(instance, QuoteVersion):
-        return instance.project.organization_id
-    if isinstance(instance, QuoteItem):
-        return instance.quote.project.organization_id
-    if isinstance(instance, ProjectBudget | Expense):
-        return instance.project.organization_id
-    if isinstance(instance, PlantSpecies | PlantCultivar | PlantRuleVersion):
-        return None
-    return None
+    """Extract the owning organization ID from any model instance.
+
+    Handles both direct and nested relationships by trying paths in order:
+    direct .id, .organization_id, .project.organization_id, etc.
+    """
+    match instance:
+        case Organization():
+            return instance.id
+        case Membership() | Client() | Project() | PriceBook():
+            return instance.organization_id
+        case Site():
+            return instance.project.organization_id
+        case SiteVersion():
+            return instance.site.project.organization_id
+        case SiteFeature():
+            return instance.site_version.site.project.organization_id
+        case Layout():
+            return instance.project.organization_id
+        case LayoutVersion():
+            return instance.layout.project.organization_id
+        case LayoutItem():
+            return instance.layout_version.layout.project.organization_id
+        case ValidationIssue() | SolverRun() | IrrigationEstimate() | IrrigationZone():
+            return instance.layout_version.layout.project.organization_id
+        case PriceItem():
+            return instance.price_book.organization_id
+        case QuoteVersion():
+            return instance.project.organization_id
+        case QuoteItem():
+            return instance.quote.project.organization_id
+        case ProjectBudget() | Expense():
+            return instance.project.organization_id
+        case PlantSpecies() | PlantCultivar() | PlantRuleVersion():
+            return None
+        case _:
+            return None
 
 
 class OrganizationRolePermission(BasePermission):

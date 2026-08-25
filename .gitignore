@@ -38,3 +38,12 @@ gitleaks-report.json
 # Contexto local de agentes y adjuntos del usuario. Hoy solo esta excluido en
 # .git/info/exclude, que no se comparte entre clones; aqui queda garantizado.
 .context/
+
+# Media archivos: nunca commitear videos, audios, imagenes grandes.
+*.mov
+*.mp4
+*.m4v
+*.webm
+*.mp3
+*.wav
+*.flac
