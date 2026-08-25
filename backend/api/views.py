@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import logging
+from uuid import UUID
 
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import AnonymousUser
 from django.db import transaction
+from django.db.models import QuerySet
 from django.middleware.csrf import get_token
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
@@ -25,7 +29,9 @@ from api.serializers import (
     ClientSerializer,
     CSRFTokenSerializer,
     EmptySerializer,
+    ErrorResponseSerializer,
     ExpenseSerializer,
+    GeneratedPlanSerializer,
     IrrigationEstimateSerializer,
     IrrigationZoneSerializer,
     LayoutSerializer,
@@ -66,7 +72,7 @@ from finance.models import (
 )
 from finance.services import project_finance_summary
 from identity.access import ADMIN_ROLES, DESIGN_ROLES, FINANCE_ROLES
-from identity.models import Client, Membership, Organization
+from identity.models import Client, Membership, Organization, User
 from irrigation.models import IrrigationEstimate, IrrigationZone, TariffVersion, WaterProvider
 from planning.models import Layout, LayoutVersion, SolverRun, ValidationIssue
 from planning.services import persist_generated_plan, revise_layout
@@ -235,6 +241,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         require_role(self.request.user, serializer.instance.organization_id, DESIGN_ROLES)
         serializer.save()
 
+    @extend_schema(
+        request=PlanInputSerializer,
+        responses={201: GeneratedPlanSerializer, 400: ErrorResponseSerializer},
+    )
     @action(detail=True, methods=("post",), url_path="generate-plan")
     def generate_plan(self, request: Request, pk: str | None = None) -> Response:
         project = self.get_object()
@@ -332,6 +342,16 @@ class PlantRuleVersionViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
 
+def layout_version_queryset(user: User | AnonymousUser) -> QuerySet[LayoutVersion]:
+    return (
+        LayoutVersion.objects.filter(
+            layout__project__organization_id__in=organization_ids_for(user)
+        )
+        .select_related("layout__project__organization", "site_version", "author")
+        .prefetch_related("items__cultivar", "validation_issues", "irrigation_estimates")
+    )
+
+
 class LayoutViewSet(viewsets.ModelViewSet):
     serializer_class = LayoutSerializer
     permission_classes = [IsAuthenticated, OrganizationRolePermission]
@@ -351,6 +371,14 @@ class LayoutViewSet(viewsets.ModelViewSet):
         require_role(self.request.user, serializer.instance.project.organization_id, DESIGN_ROLES)
         serializer.save()
 
+    @extend_schema(
+        request=ReviseLayoutSerializer,
+        responses={
+            201: LayoutVersionSerializer,
+            400: ErrorResponseSerializer,
+            409: ErrorResponseSerializer,
+        },
+    )
     @action(detail=True, methods=("post",), url_path="revisions")
     def create_revision(self, request: Request, pk: str | None = None) -> Response:
         layout = self.get_object()
@@ -366,19 +394,44 @@ class LayoutViewSet(viewsets.ModelViewSet):
         )
         return Response(LayoutVersionSerializer(version).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(responses={200: LayoutVersionSerializer(many=True)})
+    @create_revision.mapping.get
+    def list_revisions(self, request: Request, pk: str | None = None) -> Response:
+        """Revisions of a single layout, newest first, so a client can reopen the latest."""
+        layout = self.get_object()
+        versions = layout_version_queryset(request.user).filter(layout=layout).order_by("-revision")
+        page = self.paginate_queryset(versions)
+        if page is not None:
+            return self.get_paginated_response(LayoutVersionSerializer(page, many=True).data)
+        return Response(LayoutVersionSerializer(versions, many=True).data)
 
+
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="layout",
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description="Return only the versions of this layout.",
+            )
+        ]
+    )
+)
 class LayoutVersionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = LayoutVersionSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):  # type: ignore[no-untyped-def]
-        return (
-            LayoutVersion.objects.filter(
-                layout__project__organization_id__in=organization_ids_for(self.request.user)
-            )
-            .select_related("layout__project__organization", "site_version", "author")
-            .prefetch_related("items__cultivar", "validation_issues", "irrigation_estimates")
-        )
+        queryset = layout_version_queryset(self.request.user)
+        layout_id = self.request.query_params.get("layout")
+        if layout_id:
+            try:
+                layout_uuid = UUID(str(layout_id))
+            except ValueError:
+                raise ValidationError({"layout": "Must be a valid UUID."}) from None
+            queryset = queryset.filter(layout_id=layout_uuid)
+        return queryset
 
     @action(detail=True, methods=("post",))
     def optimize(self, request: Request, pk: str | None = None) -> Response:
