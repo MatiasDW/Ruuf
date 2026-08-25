@@ -47,6 +47,11 @@ class PlantCultivar(UUIDTimeStampedModel):
         MEDIUM = "medium", "Medium"
         HIGH = "high", "High"
 
+    class FoliageType(models.TextChoices):
+        EVERGREEN = "evergreen", "Evergreen"
+        DECIDUOUS = "deciduous", "Deciduous (loses leaves in winter)"
+        SEMI_DECIDUOUS = "semi_deciduous", "Semi-deciduous (partial loss)"
+
     species = models.ForeignKey(PlantSpecies, on_delete=models.PROTECT, related_name="cultivars")
     slug = models.SlugField(max_length=120, unique=True)
     cultivar_name = models.CharField(max_length=160, blank=True)
@@ -77,6 +82,12 @@ class PlantCultivar(UUIDTimeStampedModel):
     )
     style_tags = models.JSONField(default=list)
     color = models.CharField(max_length=7, default="#6f8f61")
+    foliage_type = models.CharField(
+        max_length=20, choices=FoliageType.choices, default=FoliageType.EVERGREEN
+    )
+    color_winter = models.CharField(
+        max_length=7, blank=True, help_text="Stem/branch color in winter (for deciduous plants)"
+    )
     provenance = models.CharField(max_length=40, default="prototype_unverified")
     is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)

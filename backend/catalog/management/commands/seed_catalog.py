@@ -22,6 +22,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "60.00",
         "styles": ["native", "mediterranean"],
         "color": "#7ea16b",
+        "foliage_type": "deciduous",
+        "color_winter": "#8b7355",
     },
     {
         "slug": "jacaranda",
@@ -36,6 +38,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "85.00",
         "styles": ["lush", "formal"],
         "color": "#8b6dbf",
+        "foliage_type": "deciduous",
+        "color_winter": "#6b5b6b",
     },
     {
         "slug": "olive",
@@ -50,6 +54,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "55.00",
         "styles": ["mediterranean", "formal"],
         "color": "#94a86f",
+        "foliage_type": "evergreen",
+        "color_winter": "#94a86f",
     },
     {
         "slug": "lavender",
@@ -64,6 +70,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "8.00",
         "styles": ["mediterranean", "formal"],
         "color": "#b48ad6",
+        "foliage_type": "evergreen",
+        "color_winter": "#b48ad6",
     },
     {
         "slug": "rosemary",
@@ -78,6 +86,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "9.00",
         "styles": ["mediterranean", "formal"],
         "color": "#5b8c5a",
+        "foliage_type": "evergreen",
+        "color_winter": "#5b8c5a",
     },
     {
         "slug": "agapanthus",
@@ -92,6 +102,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "12.00",
         "styles": ["formal", "lush"],
         "color": "#7ca3d8",
+        "foliage_type": "evergreen",
+        "color_winter": "#7ca3d8",
     },
     {
         "slug": "coiron",
@@ -106,6 +118,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "7.00",
         "styles": ["native", "mediterranean"],
         "color": "#c2b280",
+        "foliage_type": "semi_deciduous",
+        "color_winter": "#a89060",
     },
     {
         "slug": "hydrangea",
@@ -120,6 +134,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "18.00",
         "styles": ["lush"],
         "color": "#7fb5d6",
+        "foliage_type": "deciduous",
+        "color_winter": "#8b7a6b",
     },
 )
 
@@ -154,6 +170,8 @@ class Command(BaseCommand):
                     "liters_per_week_estimate": Decimal(item["liters"]),
                     "style_tags": item["styles"],
                     "color": item["color"],
+                    "foliage_type": item.get("foliage_type", "evergreen"),
+                    "color_winter": item.get("color_winter", ""),
                     "provenance": "prototype_unverified",
                     "is_verified": False,
                     "is_active": True,

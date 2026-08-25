@@ -74,6 +74,25 @@ class CompatibilityPlanResponseSerializer(serializers.Serializer):
     irrigation = serializers.DictField()
 
 
+class ErrorDetailSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    message = serializers.CharField()
+    details = serializers.JSONField(required=False)
+    request_id = serializers.CharField(required=False, allow_null=True)
+
+
+class ErrorResponseSerializer(serializers.Serializer):
+    error = ErrorDetailSerializer()
+
+
+class GeneratedPlanSerializer(CompatibilityPlanResponseSerializer):
+    """Response of ``POST /projects/{id}/generate-plan/``: a plan plus its persisted revision."""
+
+    layout_id = serializers.UUIDField()
+    layout_version_id = serializers.UUIDField()
+    revision = serializers.IntegerField()
+
+
 class OrganizationSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
 
@@ -279,6 +298,8 @@ class PlantCultivarSerializer(serializers.ModelSerializer):
             "liters_per_week_estimate",
             "style_tags",
             "color",
+            "foliage_type",
+            "color_winter",
             "provenance",
             "is_verified",
             "is_active",
