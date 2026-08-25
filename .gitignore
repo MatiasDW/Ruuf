@@ -11,6 +11,30 @@ test-results/
 node_modules/
 dist/
 *.tsbuildinfo
-.env
 backend/db.sqlite3
 backend/staticfiles/
+
+# SEC-102 — Entorno: la unica plantilla trackeable es .env.example.
+.env
+.env.*
+!.env.example
+
+# SEC-102 — Material de credenciales: nunca entra a Git.
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+id_rsa
+id_ed25519
+secrets.json
+credentials.json
+
+# SEC-102 — Reportes de escaneo: pueden citar lineas coincidentes.
+gitleaks-report.json
+.gitleaks-report.json
+
+# Contexto local de agentes y adjuntos del usuario. Hoy solo esta excluido en
+# .git/info/exclude, que no se comparte entre clones; aqui queda garantizado.
+.context/

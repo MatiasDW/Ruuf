@@ -1,0 +1,30 @@
+# SEC-102 — Prevencion local de secretos.
+#
+# Instalacion (una vez por clon):
+#   pipx install pre-commit   # o: brew install pre-commit
+#   pre-commit install
+#
+# Los hooks corren gitleaks en Docker, por lo que no requieren Go ni Python del
+# proyecto en el host. Ver .context/security/SEC-102.md.
+
+minimum_pre_commit_version: "3.5.0"
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  - repo: local
+    hooks:
+      - id: gitleaks-staged
+        name: gitleaks - escaneo de secretos en el contenido staged
+        entry: tools/security/scan-secrets.sh staged
+        language: system
+        pass_filenames: false
+        require_serial: true
+        stages: [pre-commit]
+
+      - id: no-tracked-secret-files
+        name: bloquear archivos de credenciales (.env, *.pem, *.key) en Git
+        entry: tools/security/check-tracked-secrets.sh
+        language: system
+        pass_filenames: false
+        require_serial: true
+        stages: [pre-commit, pre-push]

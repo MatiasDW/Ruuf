@@ -1,0 +1,36 @@
+# SEC-102 — Configuracion de ggshield (CLI de GitGuardian).
+#
+# Alcance: solo afecta ejecuciones de `ggshield` (local o en CI). La app de
+# GitGuardian instalada en el repo publico se configura desde el dashboard; la
+# resolucion del incidente 36136028 y las politicas de la organizacion son
+# acciones del dueno, documentadas en .context/security/SEC-102.md.
+#
+# Uso opcional (no es el gate; el gate es tools/security/scan-secrets.sh):
+#   docker run --rm -v "$PWD:/data" -w /data \
+#     -e GITGUARDIAN_API_KEY gitguardian/ggshield ggshield secret scan ci
+
+version: 2
+
+instance: https://dashboard.gitguardian.com
+
+secret:
+  # Nunca imprimir valores coincidentes en logs de CI ni en terminal.
+  show-secrets: false
+  ignored-paths:
+    - "**/node_modules/**"
+    - "**/dist/**"
+    - "**/coverage/**"
+    - "**/htmlcov/**"
+    - "**/playwright-report/**"
+    - "**/test-results/**"
+    - "**/staticfiles/**"
+    - "**/package-lock.json"
+    - "**/*.png"
+    - "**/*.jpg"
+    - "**/*.jpeg"
+    - "**/*.svg"
+    - "**/*.mov"
+    - "**/*.pdf"
+  # No se listan `ignored-matches`: requeriria el valor o hash del secreto y la
+  # politica de SEC-102 prohibe registrarlos. El hallazgo historico de 463454e se
+  # marca como aceptado desde el dashboard (SEC-101) y por commit en .gitleaks.toml.

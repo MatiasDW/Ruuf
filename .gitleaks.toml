@@ -1,0 +1,74 @@
+# Ruuf — configuracion de escaneo de secretos (SEC-102).
+#
+# Se extienden las reglas por defecto de gitleaks y se agregan allowlists acotadas.
+# Toda entrada debe justificar por que el hallazgo NO es un secreto real, o por que
+# ya fue analizado y aceptado en un incidente cerrado.
+#
+# Uso: tools/security/scan-secrets.sh (ver .context/security/SEC-102.md).
+
+title = "Ruuf secret scanning"
+
+[extend]
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# 1. Hallazgo historico ya analizado y aceptado (SEC-101).
+# ---------------------------------------------------------------------------
+# El commit 463454e contiene el password de PostgreSQL local que GitGuardian
+# reporto en el incidente 36136028. Ese commit no es ancestro de `main` (el PR #1
+# entro por squash) y `HEAD` ya toma el valor desde `.env` ignorado. El escaneo de
+# historia es informativo y no debe bloquear CI; el gate real es el diff nuevo.
+# No se reescribe historia: solo se marca el hallazgo como conocido.
+[[allowlists]]
+id = "sec-101-accepted-history"
+description = "Password PostgreSQL local en 463454e: incidente cerrado en SEC-101, rotado en HEAD"
+commits = ["463454e64258f86ac94301e50c9e357a5e3023d4"]
+
+# ---------------------------------------------------------------------------
+# 2. Artefactos generados y binarios: no son fuente y producen ruido de entropia.
+# ---------------------------------------------------------------------------
+# Ninguno de estos paths es codigo revisable; un secreto real que llegue aqui
+# tambien aparecera en la fuente que lo genero, que si se escanea.
+[[allowlists]]
+id = "generated-and-binary-artifacts"
+description = "Lockfiles, builds, caches y multimedia: alta entropia sin valor de revision"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''(^|/)coverage/''',
+  '''(^|/)htmlcov/''',
+  '''(^|/)staticfiles/''',
+  '''(^|/)playwright-report/''',
+  '''(^|/)test-results/''',
+  '''(^|/)\.(mypy|pytest|ruff)_cache/''',
+  '''(^|/)package-lock\.json$''',
+  '''\.(png|jpe?g|gif|webp|svg|ico|mov|mp4|pdf|woff2?)$''',
+]
+
+# ---------------------------------------------------------------------------
+# 3. Falso positivo confirmado: diagramas Mermaid en la documentacion.
+# ---------------------------------------------------------------------------
+# `generic-api-key` interpreta las flechas de secuencia (`API-->>UI: texto`) como
+# un par clave/valor. Verificado en docs/planning/04-architecture-and-stack.md:173,
+# que es prosa de arquitectura sin credencial. La allowlist se limita a esa regla,
+# a archivos .md de docs/ y a lineas con sintaxis de flecha Mermaid.
+[[allowlists]]
+id = "mermaid-sequence-arrows"
+description = "Flechas de diagramas Mermaid en docs/*.md, no son pares clave/valor"
+targetRules = ["generic-api-key"]
+paths = ['''(^|/)docs/.*\.md$''']
+regexTarget = "line"
+regexes = ['''^\s*\w+\s*-{1,2}>>?\s*\w+\s*:''']
+
+# ---------------------------------------------------------------------------
+# 4. Plantilla de entorno: solo se permiten valores vacios o marcadores.
+# ---------------------------------------------------------------------------
+# .env.example debe ser trackeable, por eso NO se allowlistea el archivo completo.
+# Solo se permiten las lineas cuyo valor es vacio o un placeholder explicito, de
+# modo que un valor real pegado por error sigue bloqueando el commit.
+[[allowlists]]
+id = "env-example-placeholders"
+description = "Placeholders vacios o <...> en .env.example; un valor real igual falla"
+paths = ['''(^|/)\.env\.example$''']
+regexTarget = "line"
+regexes = ['''^[A-Z0-9_]+=\s*(<[^>]*>|changeme|placeholder|)$''']
