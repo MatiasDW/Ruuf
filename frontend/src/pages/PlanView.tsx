@@ -9,9 +9,11 @@ import {
   highestWaterNeed,
   waterLabels,
 } from "../features/planner/model";
+import { SaveBar } from "../features/planner/SaveBar";
 import type {
   FilterMode,
   HouseFormFields,
+  PersistenceView,
   Placement,
   PlanResult,
   PlannerForm,
@@ -25,6 +27,10 @@ interface PlanViewProps {
   error: string;
   canUndo: boolean;
   canRedo: boolean;
+  persistence: PersistenceView;
+  onSignIn: (email: string, password: string) => Promise<boolean>;
+  onSave: () => Promise<void>;
+  onReloadRevision: (discardLocalEdit: boolean) => Promise<void>;
   onEditorGestureStart: () => void;
   onEditorGestureCommit: () => void;
   onEditorGestureCancel: () => void;
@@ -44,6 +50,10 @@ export function PlanView({
   error,
   canUndo,
   canRedo,
+  persistence,
+  onSignIn,
+  onSave,
+  onReloadRevision,
   onEditorGestureStart,
   onEditorGestureCommit,
   onEditorGestureCancel,
@@ -117,6 +127,14 @@ export function PlanView({
       </header>
 
       {error ? <p className="error-banner">{error}</p> : null}
+
+      <SaveBar
+        persistence={persistence}
+        canSave={Boolean(result)}
+        onSignIn={onSignIn}
+        onSave={onSave}
+        onReloadRevision={onReloadRevision}
+      />
 
       <div className="plan-workspace technical-workspace">
         <section className="map-panel technical-map-panel" aria-labelledby="map-title">

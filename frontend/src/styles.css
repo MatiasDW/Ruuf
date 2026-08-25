@@ -1104,6 +1104,121 @@ h3 {
   gap: 20px;
 }
 
+/* Save state */
+.save-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fbf8f4;
+}
+
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #5c5245;
+}
+
+.save-status span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #b7ad9e;
+}
+
+.save-status.save-saving span {
+  background: #d8a13c;
+}
+
+.save-status.save-saved span {
+  background: #3f8256;
+}
+
+.save-status.save-conflict span,
+.save-status.save-error span {
+  background: #b4553a;
+}
+
+.save-login-disclosure {
+  margin-left: auto;
+}
+
+.save-login-disclosure > summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #3f5c46;
+}
+
+.save-login,
+.save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.save-login {
+  margin-top: 10px;
+}
+
+.save-login label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: #6d6357;
+}
+
+.save-login input {
+  min-width: 180px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.save-account {
+  font-size: 0.78rem;
+  color: #6d6357;
+}
+
+.save-conflict {
+  display: grid;
+  gap: 10px;
+  flex-basis: 100%;
+  padding: 12px 14px;
+  border: 1px solid #ddb5a3;
+  border-radius: 14px;
+  color: #7e3d2b;
+  background: #fbede5;
+  font-size: 0.84rem;
+}
+
+.save-conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.save-message {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6d6357;
+}
+
 .map-panel {
   min-width: 0;
   overflow: hidden;

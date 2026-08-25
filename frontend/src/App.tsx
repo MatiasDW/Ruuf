@@ -14,13 +14,31 @@ import {
   undoEditorChange,
 } from "./features/planner/history";
 import { buildInitialRequests, buildPlanPayload, defaultForm } from "./features/planner/model";
+import {
+  attachStableIds,
+  fetchDemoProject,
+  fetchLatestRevision,
+  fetchProjectLayout,
+  fetchSession,
+  fetchSiteVersion,
+  formFromSiteVersion,
+  generatePersistedPlan,
+  login as loginRequest,
+  planResultFromRevision,
+  RevisionConflictError,
+  saveRevision,
+  toRevisionItems,
+} from "./features/planner/persistence";
 import type {
   HouseFormFields,
+  LayoutRevision,
   PlanResult,
   Placement,
   PlannerForm,
   Plant,
   PlantRequest,
+  SaveStatus,
+  SessionUser,
   SystemHealth,
   UnplacedItem,
 } from "./features/planner/types";
@@ -49,11 +67,13 @@ function PlannerApplication() {
     editorHistory: createEmptyEditorHistory(),
     activeGestureStart: null,
   });
+  const [persistence, setPersistence] = useState<PersistenceState>(anonymousPersistence);
 
   useEffect(() => {
     const controller = new AbortController();
 
     async function loadInitialData() {
+      let catalog: Plant[] = [];
       try {
         const [plantsData, healthData] = await Promise.all([
           fetchPlants(controller.signal),
@@ -65,6 +85,7 @@ function PlannerApplication() {
           : null;
 
         if (!controller.signal.aborted) {
+          catalog = plantsData;
           setPlants(plantsData);
           setRequests(initialRequests);
           setSystemHealth(healthData);
@@ -84,11 +105,202 @@ function PlannerApplication() {
           setLoading(false);
         }
       }
+
+      // The persisted workspace is optional: without a session the planner stays anonymous.
+      try {
+        const user = await fetchSession(controller.signal);
+        if (user && !controller.signal.aborted) {
+          setPersistence((current) => ({ ...current, user, status: "unsaved" }));
+          await restoreWorkspace(user, catalog, controller.signal);
+        }
+      } catch {
+        // Ignored: /api/v1 being unreachable must not break the anonymous flow.
+      }
     }
 
     void loadInitialData();
     return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function restoreWorkspace(
+    user: SessionUser,
+    catalog: Plant[],
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const project = await fetchDemoProject(signal);
+    if (!project) {
+      setPersistence((current) => ({
+        ...current,
+        user,
+        status: "unsaved",
+        message: "La sesión no tiene un proyecto asignado.",
+      }));
+      return;
+    }
+    const layout = await fetchProjectLayout(project.id, signal);
+    const revision = layout ? await fetchLatestRevision(layout.id, signal) : null;
+    if (!revision || !layout) {
+      setPersistence((current) => ({
+        ...current,
+        user,
+        projectId: project.id,
+        layoutId: layout?.id ?? null,
+        baseRevision: null,
+        status: "unsaved",
+        message: "",
+      }));
+      return;
+    }
+
+    await adoptRevision(revision, catalog, signal);
+    setPersistence((current) => ({
+      ...current,
+      user,
+      projectId: project.id,
+      layoutId: layout.id,
+      baseRevision: revision.revision,
+      conflictRevision: null,
+      status: "saved",
+      message: "",
+    }));
+  }
+
+  /** Puts a stored revision back on the canvas, including its yard and house geometry. */
+  async function adoptRevision(
+    revision: LayoutRevision,
+    catalog: Plant[],
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const site = await fetchSiteVersion(revision.site_version, signal).catch(() => null);
+    setPlanner((current) => ({
+      ...current,
+      form: site ? formFromSiteVersion(current.form, site) : current.form,
+      result: planResultFromRevision(revision, catalog),
+      editorHistory: createEmptyEditorHistory(),
+      activeGestureStart: null,
+    }));
+  }
+
+  function markUnsaved() {
+    setPersistence((current) =>
+      current.user && (current.status === "saved" || current.status === "error")
+        ? { ...current, status: "unsaved", message: "" }
+        : current,
+    );
+  }
+
+  async function signIn(email: string, password: string): Promise<boolean> {
+    setPersistence((current) => ({ ...current, busy: true, message: "" }));
+    try {
+      const user = await loginRequest(email, password);
+      setPersistence((current) => ({ ...current, user, status: "unsaved", busy: false }));
+      await restoreWorkspace(user, plants);
+      return true;
+    } catch {
+      setPersistence((current) => ({
+        ...current,
+        busy: false,
+        status: "anonymous",
+        message: "No pudimos iniciar sesión. Revisa el correo y la clave.",
+      }));
+      return false;
+    }
+  }
+
+  async function savePlan(): Promise<void> {
+    const projectId = persistence.projectId;
+    if (!persistence.user || !projectId || !planner.result) {
+      return;
+    }
+    const placements = planner.result.placements;
+    setPersistence((current) => ({ ...current, status: "saving", message: "" }));
+
+    try {
+      let layoutId = persistence.layoutId;
+      let baseRevision = persistence.baseRevision;
+      if (!layoutId || baseRevision === null) {
+        // The first save persists the generated layout; the manual edit lands on top of it.
+        const generated = await generatePersistedPlan(
+          projectId,
+          buildPlanPayload(planner.form, requests),
+        );
+        layoutId = generated.layout_id;
+        baseRevision = generated.revision;
+      }
+
+      const revision = await saveRevision(layoutId, baseRevision, toRevisionItems(placements));
+      setPlanner((current) =>
+        current.result
+          ? {
+              ...current,
+              result: {
+                ...current.result,
+                placements: attachStableIds(current.result.placements, revision.items),
+              },
+            }
+          : current,
+      );
+      setPersistence((current) => ({
+        ...current,
+        layoutId,
+        baseRevision: revision.revision,
+        conflictRevision: null,
+        status: "saved",
+        message: "",
+      }));
+    } catch (saveError) {
+      if (saveError instanceof RevisionConflictError) {
+        setPersistence((current) => ({
+          ...current,
+          status: "conflict",
+          conflictRevision: saveError.currentRevision,
+          message: "",
+        }));
+        return;
+      }
+      setPersistence((current) => ({
+        ...current,
+        status: "error",
+        message: "No pudimos guardar el plan. Intenta nuevamente.",
+      }));
+    }
+  }
+
+  /** Conflict recovery: adopt the newest revision as base and keep the pending local edit. */
+  async function reloadLatestRevision(discardLocalEdit: boolean): Promise<void> {
+    if (!persistence.layoutId) {
+      return;
+    }
+    setPersistence((current) => ({ ...current, busy: true, message: "" }));
+    try {
+      const revision = await fetchLatestRevision(persistence.layoutId);
+      if (!revision) {
+        setPersistence((current) => ({ ...current, busy: false }));
+        return;
+      }
+      if (discardLocalEdit) {
+        await adoptRevision(revision, plants);
+      }
+      setPersistence((current) => ({
+        ...current,
+        busy: false,
+        baseRevision: revision.revision,
+        conflictRevision: null,
+        status: discardLocalEdit ? "saved" : "unsaved",
+        message: discardLocalEdit
+          ? `Cargamos la revisión ${revision.revision}.`
+          : `Base actualizada a la revisión ${revision.revision}. Tu edición local sigue aquí: vuelve a guardar.`,
+      }));
+    } catch {
+      setPersistence((current) => ({
+        ...current,
+        busy: false,
+        status: "error",
+        message: "No pudimos leer la última revisión.",
+      }));
+    }
+  }
 
   function updateFormField<Key extends keyof PlannerForm>(field: Key, value: PlannerForm[Key]) {
     setPlanner((current) => ({
@@ -115,6 +327,7 @@ function PlannerApplication() {
   async function generatePlan(): Promise<boolean> {
     setLoading(true);
     setError("");
+    markUnsaved();
 
     try {
       const data = await createPlan(buildPlanPayload(planner.form, requests));
@@ -164,6 +377,7 @@ function PlannerApplication() {
   }
 
   function updatePlacement(index: number, placement: Placement) {
+    markUnsaved();
     setPlanner((current) => {
       if (!current.result) {
         return current;
@@ -205,6 +419,7 @@ function PlannerApplication() {
   }
 
   function updateHouse(nextHouse: HouseFormFields) {
+    markUnsaved();
     setPlanner((current) => {
       const nextForm = applyHouseFields(current.form, nextHouse);
       const placements = current.result?.placements ?? [];
@@ -241,6 +456,7 @@ function PlannerApplication() {
   }
 
   function commitEditorGesture() {
+    markUnsaved();
     setPlanner((current) => {
       if (!current.activeGestureStart) {
         return current;
@@ -275,6 +491,7 @@ function PlannerApplication() {
   }
 
   function undoEditorChangeRequest() {
+    markUnsaved();
     setPlanner((current) => {
       const currentSnapshot = createEditorSnapshot(current.form, current.result?.placements ?? []);
       const { history, snapshot } = undoEditorChange(current.editorHistory, currentSnapshot);
@@ -293,6 +510,7 @@ function PlannerApplication() {
   }
 
   function redoEditorChangeRequest() {
+    markUnsaved();
     setPlanner((current) => {
       const currentSnapshot = createEditorSnapshot(current.form, current.result?.placements ?? []);
       const { history, snapshot } = redoEditorChange(current.editorHistory, currentSnapshot);
@@ -351,6 +569,17 @@ function PlannerApplication() {
               onReplaceConflict={replaceConflict}
               onUndo={undoEditorChangeRequest}
               onRedo={redoEditorChangeRequest}
+              persistence={{
+                status: persistence.status,
+                email: persistence.user?.email ?? null,
+                revision: persistence.baseRevision,
+                conflictRevision: persistence.conflictRevision,
+                busy: persistence.busy,
+                message: persistence.message,
+              }}
+              onSignIn={signIn}
+              onSave={savePlan}
+              onReloadRevision={reloadLatestRevision}
             />
           }
         />
@@ -366,6 +595,28 @@ interface PlannerState {
   editorHistory: ReturnType<typeof createEmptyEditorHistory>;
   activeGestureStart: EditorSnapshot | null;
 }
+
+interface PersistenceState {
+  user: SessionUser | null;
+  projectId: string | null;
+  layoutId: string | null;
+  baseRevision: number | null;
+  conflictRevision: number | null;
+  status: SaveStatus;
+  busy: boolean;
+  message: string;
+}
+
+const anonymousPersistence: PersistenceState = {
+  user: null,
+  projectId: null,
+  layoutId: null,
+  baseRevision: null,
+  conflictRevision: null,
+  status: "anonymous",
+  busy: false,
+  message: "",
+};
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";

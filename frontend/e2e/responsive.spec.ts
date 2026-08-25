@@ -64,6 +64,10 @@ const plan = {
 };
 
 async function mockApi(page: Page) {
+  // These views run anonymously: the persistent API answers as "no session".
+  await page.route("**/api/v1/**", (route) =>
+    route.fulfill({ status: 403, json: { error: { code: "permission_denied" } } }),
+  );
   await page.route("**/api/plants", (route) => route.fulfill({ json: plants }));
   await page.route("**/api/health", (route) =>
     route.fulfill({
@@ -126,6 +130,7 @@ test("editor history buttons undo and redo a multi-step plant drag", async ({ pa
 
   const plant = page.getByTestId("plant-marker-0");
   const plantCore = plant.locator(".plant-core");
+  await plant.scrollIntoViewIfNeeded();
   const initialX = await plantCore.getAttribute("cx");
   const initialY = await plantCore.getAttribute("cy");
   const box = await plant.boundingBox();
