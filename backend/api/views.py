@@ -33,6 +33,7 @@ from api.serializers import (
     ExpenseSerializer,
     GeneratedPlanSerializer,
     IrrigationEstimateSerializer,
+    IrrigationNetworkDesignSerializer,
     IrrigationZoneSerializer,
     LayoutSerializer,
     LayoutVersionSerializer,
@@ -73,7 +74,13 @@ from finance.models import (
 from finance.services import project_finance_summary
 from identity.access import ADMIN_ROLES, DESIGN_ROLES, FINANCE_ROLES
 from identity.models import Client, Membership, Organization, User
-from irrigation.models import IrrigationEstimate, IrrigationZone, TariffVersion, WaterProvider
+from irrigation.models import (
+    IrrigationEstimate,
+    IrrigationNetworkDesign,
+    IrrigationZone,
+    TariffVersion,
+    WaterProvider,
+)
 from planning.models import Layout, LayoutVersion, SolverRun, ValidationIssue
 from planning.services import persist_generated_plan, revise_layout
 from planning.tasks import run_solver_task
@@ -404,6 +411,62 @@ class LayoutViewSet(viewsets.ModelViewSet):
         if page is not None:
             return self.get_paginated_response(LayoutVersionSerializer(page, many=True).data)
         return Response(LayoutVersionSerializer(versions, many=True).data)
+
+    @extend_schema(
+        responses={200: IrrigationNetworkDesignSerializer, 201: IrrigationNetworkDesignSerializer}
+    )
+    @action(detail=True, methods=("get", "post", "put"), url_path="irrigation-network-design")
+    def irrigation_network_design(self, request: Request, pk: str | None = None) -> Response:
+        """Get or update irrigation network design for a layout."""
+        layout = self.get_object()
+        require_role(request.user, layout.project.organization_id, DESIGN_ROLES)
+
+        if request.method == "GET":
+            design = IrrigationNetworkDesign.objects.filter(layout=layout).first()
+            if not design:
+                return Response({"detail": "No irrigation network design found."}, status=404)
+            return Response(IrrigationNetworkDesignSerializer(design).data)
+
+        serializer = IrrigationNetworkDesignSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+
+        site_version = (
+            layout.versions.filter(revision=layout.current_revision)
+            .select_related("site_version")
+            .first()
+        )
+        if not site_version or not site_version.site_version:
+            return Response(
+                {"detail": "Layout has no site version."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        yard_width = float(site_version.site_version.width_m)
+        yard_height = float(site_version.site_version.height_m)
+
+        x = float(validated.get("water_source_x", 0))
+        y = float(validated.get("water_source_y", 0))
+        if not (0 <= x <= yard_width and 0 <= y <= yard_height):
+            msg = f"Water source must be inside yard bounds (0-{yard_width}m x 0-{yard_height}m)."
+            return Response(
+                {"detail": msg},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        design, created = IrrigationNetworkDesign.objects.update_or_create(
+            layout=layout,
+            defaults={
+                "water_source_x": validated.get("water_source_x", 0),
+                "water_source_y": validated.get("water_source_y", 0),
+                "main_pipe_route": validated.get("main_pipe_route", []),
+                "num_main_pipes": validated.get("num_main_pipes", 1),
+            },
+        )
+        if "zones" in validated:
+            design.zones.set(validated["zones"])
+
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(IrrigationNetworkDesignSerializer(design).data, status=status_code)
 
 
 @extend_schema_view(

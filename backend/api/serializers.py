@@ -17,7 +17,13 @@ from finance.models import (
     QuoteVersion,
 )
 from identity.models import Client, Membership, Organization, User
-from irrigation.models import IrrigationEstimate, IrrigationZone, TariffVersion, WaterProvider
+from irrigation.models import (
+    IrrigationEstimate,
+    IrrigationNetworkDesign,
+    IrrigationZone,
+    TariffVersion,
+    WaterProvider,
+)
 from planning.models import Layout, LayoutItem, LayoutVersion, SolverRun, ValidationIssue
 from projects.models import Project, Site, SiteFeature, SiteVersion
 
@@ -428,6 +434,27 @@ class IrrigationZoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = IrrigationZone
         fields = "__all__"
+
+
+class IrrigationNetworkDesignSerializer(serializers.ModelSerializer):
+    zones = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=IrrigationZone.objects.all(), required=False
+    )
+
+    class Meta:
+        model = IrrigationNetworkDesign
+        fields = (
+            "id",
+            "layout",
+            "water_source_x",
+            "water_source_y",
+            "main_pipe_route",
+            "num_main_pipes",
+            "zones",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "created_at", "updated_at")
 
 
 class PriceBookSerializer(serializers.ModelSerializer):
