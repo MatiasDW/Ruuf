@@ -2918,3 +2918,293 @@ h3 {
     margin-bottom: 4px;
   }
 }
+
+/* Irrigation Network Editor */
+
+.irrigation-editor {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  z-index: 10;
+  width: 320px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: rgba(248, 250, 248, 0.98);
+  border: 1px solid rgba(114, 121, 114, 0.26);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(22, 52, 34, 0.15);
+  backdrop-filter: blur(14px);
+  padding: 16px;
+  font-family: "Inter", sans-serif;
+  color: #3f4c44;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(114, 121, 114, 0.15);
+}
+
+.editor-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #163422;
+}
+
+.close-button {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #8a9c8f;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-button:hover {
+  color: #163422;
+}
+
+.editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #3f4c44;
+}
+
+.form-group input {
+  padding: 8px 10px;
+  border: 1px solid rgba(114, 121, 114, 0.3);
+  border-radius: 6px;
+  font-family: "Inter", sans-serif;
+  font-size: 0.85rem;
+  color: #163422;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #245c69;
+  box-shadow: 0 0 0 2px rgba(36, 92, 105, 0.1);
+}
+
+.pipes-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.pipe-button {
+  padding: 8px 4px;
+  border: 1px solid rgba(114, 121, 114, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.5);
+  font-family: "Inter", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #3f4c44;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.pipe-button:hover {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: #245c69;
+}
+
+.pipe-button.active {
+  background: #245c69;
+  color: #ffffff;
+  border-color: #245c69;
+}
+
+.route-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid rgba(114, 121, 114, 0.15);
+  border-radius: 6px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.empty-route {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #8a9c8f;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.route-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.route-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 6px;
+  background: rgba(248, 250, 248, 0.8);
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.remove-button {
+  background: transparent;
+  border: none;
+  color: #c74c4c;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  line-height: 1;
+}
+
+.remove-button:hover {
+  color: #a63a3a;
+}
+
+.add-route-button {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px dashed rgba(114, 121, 114, 0.3);
+  border-radius: 6px;
+  background: transparent;
+  font-family: "Inter", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #245c69;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.add-route-button:hover {
+  background: rgba(36, 92, 105, 0.05);
+  border-color: #245c69;
+}
+
+.save-button {
+  padding: 10px 12px;
+  background: #245c69;
+  border: none;
+  border-radius: 6px;
+  color: #ffffff;
+  font-family: "Inter", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.save-button:hover:not(:disabled) {
+  background: #1a4452;
+  box-shadow: 0 4px 12px rgba(22, 52, 34, 0.2);
+}
+
+.save-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error-message {
+  padding: 8px 10px;
+  background: rgba(199, 76, 76, 0.1);
+  border: 1px solid rgba(199, 76, 76, 0.3);
+  border-radius: 6px;
+  color: #a63a3a;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+/* Interactive water source in SVG */
+
+.interactive-water-source {
+  cursor: crosshair;
+}
+
+.water-source-draggable {
+  fill: rgba(36, 152, 189, 0.3);
+  stroke: #245c69;
+  stroke-width: 2;
+  cursor: grab;
+  transition: opacity 160ms ease;
+  vector-effect: non-scaling-stroke;
+}
+
+.water-source-draggable:hover {
+  fill: rgba(36, 152, 189, 0.5);
+}
+
+.water-source-draggable:active {
+  cursor: grabbing;
+}
+
+.route-point {
+  fill: #ff9800;
+  stroke: #f57c00;
+  stroke-width: 2;
+  cursor: grab;
+  vector-effect: non-scaling-stroke;
+}
+
+.route-point:hover {
+  fill: #ffb74d;
+}
+
+.route-point:active {
+  cursor: grabbing;
+}
+
+.pipe-route-line {
+  fill: none;
+  stroke: #ff9800;
+  stroke-width: 2;
+  stroke-dasharray: 6, 4;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.edit-irrigation-button {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  z-index: 9;
+  padding: 10px 14px;
+  background: #245c69;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-family: "Inter", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 160ms ease;
+  box-shadow: 0 4px 12px rgba(22, 52, 34, 0.15);
+}
+
+.edit-irrigation-button:hover {
+  background: #1a4452;
+  box-shadow: 0 6px 16px rgba(22, 52, 34, 0.2);
+}
+
+.edit-irrigation-button:active {
+  transform: scale(0.98);
+}

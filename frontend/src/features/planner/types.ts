@@ -234,3 +234,22 @@ export interface LegendItem {
   color?: string;
   swatchClass?: string;
 }
+
+export interface IrrigationNetworkDesign {
+  id?: string;
+  layout?: string;
+  water_source_x: number;
+  water_source_y: number;
+  main_pipe_route: Array<{ x: number; y: number }>;
+  num_main_pipes: number;
+}
+
+export interface IrrigationEditorState {
+  isEditing: boolean;
+  sourceX: number;
+  sourceY: number;
+  pipeRoute: Array<{ x: number; y: number }>;
+  numPipes: 1 | 2 | 3 | 4;
+  isDirty: boolean;
+  isSaving: boolean;
+}

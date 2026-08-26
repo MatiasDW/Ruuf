@@ -1,0 +1,174 @@
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+
+interface InteractiveWaterSourceProps {
+  sourceX: number;
+  sourceY: number;
+  yardWidth: number;
+  yardHeight: number;
+  zoom: number;
+  pipeRoute: Array<{ x: number; y: number }>;
+  onSourceMove: (x: number, y: number) => void;
+  onRoutePointMove: (index: number, x: number, y: number) => void;
+  onRoutePointAdd: (x: number, y: number) => void;
+  onRoutePointSelect: (index: number | null) => void;
+}
+
+const UNITS_PER_METER = 100;
+const GRID_SNAP = 0.25;
+
+function snapMeters(value: number): number {
+  return Math.round(value / GRID_SNAP) * GRID_SNAP;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, max));
+}
+
+export function InteractiveWaterSource({
+  sourceX,
+  sourceY,
+  yardWidth,
+  yardHeight,
+  zoom,
+  pipeRoute,
+  onSourceMove,
+  onRoutePointMove,
+  onRoutePointAdd,
+  onRoutePointSelect,
+}: InteractiveWaterSourceProps) {
+  const svgRef = useRef<SVGGElement>(null);
+  const [dragState, setDragState] = useState<
+    | { kind: "source"; offsetX: number; offsetY: number }
+    | { kind: "route-point"; index: number; offsetX: number; offsetY: number }
+    | null
+  >(null);
+
+  function getEventPoint(event: ReactPointerEvent<SVGElement>) {
+    const svg = event.currentTarget.ownerSVGElement as SVGSVGElement;
+    const matrix = svg?.getScreenCTM?.();
+    if (!matrix) return null;
+
+    const point = svg.createSVGPoint?.();
+    if (!point) return null;
+
+    point.x = event.clientX;
+    point.y = event.clientY;
+    return point.matrixTransform(matrix.inverse());
+  }
+
+  function handleSourcePointerDown(event: ReactPointerEvent<SVGCircleElement>) {
+    const point = getEventPoint(event);
+    if (!point) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    setDragState({
+      kind: "source",
+      offsetX: point.x - sourceX * UNITS_PER_METER,
+      offsetY: point.y - sourceY * UNITS_PER_METER,
+    });
+  }
+
+  function handleRoutePointPointerDown(event: ReactPointerEvent<SVGCircleElement>, index: number) {
+    const point = getEventPoint(event);
+    if (!point) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    onRoutePointSelect(index);
+
+    const routePoint = pipeRoute[index];
+    if (!routePoint) return;
+
+    setDragState({
+      kind: "route-point",
+      index,
+      offsetX: point.x - routePoint.x * UNITS_PER_METER,
+      offsetY: point.y - routePoint.y * UNITS_PER_METER,
+    });
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<SVGGElement>) {
+    if (!dragState) return;
+
+    const point = getEventPoint(event);
+    if (!point) return;
+
+    event.preventDefault();
+
+    if (dragState.kind === "source") {
+      const x = snapMeters(clamp((point.x - dragState.offsetX) / UNITS_PER_METER, 0, yardWidth));
+      const y = snapMeters(clamp((point.y - dragState.offsetY) / UNITS_PER_METER, 0, yardHeight));
+      onSourceMove(x, y);
+    } else if (dragState.kind === "route-point") {
+      const x = snapMeters(clamp((point.x - dragState.offsetX) / UNITS_PER_METER, 0, yardWidth));
+      const y = snapMeters(clamp((point.y - dragState.offsetY) / UNITS_PER_METER, 0, yardHeight));
+      onRoutePointMove(dragState.index, x, y);
+    }
+  }
+
+  function handlePointerUp() {
+    setDragState(null);
+  }
+
+  function handleMapClick(event: ReactPointerEvent<SVGGElement>) {
+    if (event.target !== event.currentTarget) return;
+
+    const point = getEventPoint(event);
+    if (!point) return;
+
+    const x = snapMeters(clamp(point.x / UNITS_PER_METER, 0, yardWidth));
+    const y = snapMeters(clamp(point.y / UNITS_PER_METER, 0, yardHeight));
+    onRoutePointAdd(x, y);
+  }
+
+  const handleRadius = 20 / zoom;
+
+  return (
+    <g
+      ref={svgRef}
+      className="interactive-water-source"
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onClick={handleMapClick}
+    >
+      {/* Pipe route visualization */}
+      {pipeRoute.length > 0 && (
+        <>
+          {pipeRoute.map((point, index) => (
+            <circle
+              key={`route-point-${index}`}
+              className="route-point"
+              cx={point.x * UNITS_PER_METER}
+              cy={point.y * UNITS_PER_METER}
+              r={handleRadius}
+              onPointerDown={(e) => handleRoutePointPointerDown(e, index)}
+              data-testid={`route-point-${index}`}
+            />
+          ))}
+
+          {/* Route line */}
+          <polyline
+            className="pipe-route-line"
+            points={[
+              `${sourceX * UNITS_PER_METER},${sourceY * UNITS_PER_METER}`,
+              ...pipeRoute.map((p) => `${p.x * UNITS_PER_METER},${p.y * UNITS_PER_METER}`),
+            ].join(" ")}
+          />
+        </>
+      )}
+
+      {/* Water source circle - interactive */}
+      <circle
+        className="water-source-draggable"
+        cx={sourceX * UNITS_PER_METER}
+        cy={sourceY * UNITS_PER_METER}
+        r={handleRadius * 1.5}
+        onPointerDown={handleSourcePointerDown}
+        data-testid="water-source-draggable"
+      />
+    </g>
+  );
+}

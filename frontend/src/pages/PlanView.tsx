@@ -13,6 +13,7 @@ import { SaveBar } from "../features/planner/SaveBar";
 import type {
   FilterMode,
   HouseFormFields,
+  IrrigationEditorState,
   PersistenceView,
   Placement,
   PlanResult,
@@ -28,6 +29,7 @@ interface PlanViewProps {
   canUndo: boolean;
   canRedo: boolean;
   persistence: PersistenceView;
+  irrigationEditor: IrrigationEditorState;
   onSignIn: (email: string, password: string) => Promise<boolean>;
   onSave: () => Promise<void>;
   onReloadRevision: (discardLocalEdit: boolean) => Promise<void>;
@@ -39,6 +41,7 @@ interface PlanViewProps {
   onPlacementChange: (index: number, placement: Placement) => void;
   onPlacementPreview: (index: number, placement: Placement) => void;
   onReplaceConflict: (item: UnplacedItem) => Promise<void>;
+  onSetIrrigationEditor: (state: IrrigationEditorState) => void;
   onUndo: () => void;
   onRedo: () => void;
 }
@@ -48,6 +51,8 @@ export function PlanView({
   result,
   loading,
   error,
+  irrigationEditor,
+  onSetIrrigationEditor,
   canUndo,
   canRedo,
   persistence,
@@ -219,6 +224,7 @@ export function PlanView({
                 filterMode={filterMode}
                 zoom={zoom}
                 selection={selection}
+                irrigationState={irrigationEditor}
                 onSelectionChange={setSelection}
                 onEditorGestureStart={onEditorGestureStart}
                 onEditorGestureCommit={onEditorGestureCommit}
@@ -226,6 +232,10 @@ export function PlanView({
                 onHousePreview={onHousePreview}
                 onPlacementChange={onPlacementChange}
                 onPlacementPreview={onPlacementPreview}
+                onIrrigationStateChange={(partial) =>
+                  onSetIrrigationEditor({ ...irrigationEditor, ...partial })
+                }
+                onIrrigationSave={async () => console.log("Save irrigation network")}
               />
             ) : (
               <div className="map-loading">

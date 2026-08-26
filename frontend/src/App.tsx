@@ -31,6 +31,7 @@ import {
 } from "./features/planner/persistence";
 import type {
   HouseFormFields,
+  IrrigationEditorState,
   LayoutRevision,
   PlanResult,
   Placement,
@@ -68,6 +69,15 @@ function PlannerApplication() {
     activeGestureStart: null,
   });
   const [persistence, setPersistence] = useState<PersistenceState>(anonymousPersistence);
+  const [irrigationEditor, setIrrigationEditor] = useState<IrrigationEditorState>({
+    isEditing: false,
+    sourceX: 2,
+    sourceY: 2,
+    pipeRoute: [],
+    numPipes: 1,
+    isDirty: false,
+    isSaving: false,
+  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -559,6 +569,8 @@ function PlannerApplication() {
               error={error}
               canUndo={hasUndoHistory(planner.editorHistory)}
               canRedo={hasRedoHistory(planner.editorHistory)}
+              irrigationEditor={irrigationEditor}
+              onSetIrrigationEditor={setIrrigationEditor}
               onEditorGestureStart={startEditorGesture}
               onEditorGestureCommit={commitEditorGesture}
               onEditorGestureCancel={cancelEditorGesture}

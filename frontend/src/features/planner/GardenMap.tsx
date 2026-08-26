@@ -11,7 +11,15 @@ import {
   validatePlacements,
 } from "./editor";
 import { inferCategory, shortLabel, typeColors, waterLabels } from "./model";
-import type { FilterMode, HouseFormFields, Placement, PlannerForm } from "./types";
+import { InteractiveWaterSource } from "./InteractiveWaterSource";
+import { IrrigationEditor } from "./IrrigationEditor";
+import type {
+  FilterMode,
+  HouseFormFields,
+  IrrigationEditorState,
+  Placement,
+  PlannerForm,
+} from "./types";
 
 export type GardenSelection = { kind: "house" } | { kind: "plant"; index: number } | null;
 
@@ -21,6 +29,7 @@ interface GardenMapProps {
   filterMode: FilterMode;
   zoom: number;
   selection: GardenSelection;
+  irrigationState?: IrrigationEditorState;
   onSelectionChange: (selection: GardenSelection) => void;
   onEditorGestureStart: () => void;
   onEditorGestureCommit: () => void;
@@ -28,6 +37,8 @@ interface GardenMapProps {
   onHousePreview: (house: HouseFormFields) => void;
   onPlacementChange: (index: number, placement: Placement) => void;
   onPlacementPreview: (index: number, placement: Placement) => void;
+  onIrrigationStateChange?: (state: Partial<IrrigationEditorState>) => void;
+  onIrrigationSave?: () => Promise<void>;
 }
 
 type ResizeCorner = "nw" | "ne" | "se" | "sw";
@@ -52,6 +63,7 @@ export function GardenMap({
   filterMode,
   zoom,
   selection,
+  irrigationState,
   onSelectionChange,
   onEditorGestureStart,
   onEditorGestureCommit,
@@ -59,6 +71,8 @@ export function GardenMap({
   onHousePreview,
   onPlacementChange,
   onPlacementPreview,
+  onIrrigationStateChange,
+  onIrrigationSave,
 }: GardenMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -371,7 +385,7 @@ export function GardenMap({
         </g>
 
         {filterMode === "water" ? (
-          <g className="irrigation-layer" aria-label="Red referencial de riego">
+          <g className="irrigation-layer" aria-label="Red de riego">
             {placements.map((placement, index) => {
               const reach = irrigationReachMeters(placement) * UNITS_PER_METER;
               return (
@@ -417,6 +431,29 @@ export function GardenMap({
                 d={`M 0 ${-13 / zoom} C ${10 / zoom} 0 ${12 / zoom} ${6 / zoom} 0 ${13 / zoom} C ${-12 / zoom} ${6 / zoom} ${-10 / zoom} 0 0 ${-13 / zoom} Z`}
               />
             </g>
+
+            {irrigationState?.isEditing && onIrrigationStateChange ? (
+              <InteractiveWaterSource
+                sourceX={irrigationState.sourceX}
+                sourceY={irrigationState.sourceY}
+                yardWidth={form.yard_width}
+                yardHeight={form.yard_height}
+                zoom={zoom}
+                pipeRoute={irrigationState.pipeRoute}
+                onSourceMove={(x, y) => onIrrigationStateChange({ sourceX: x, sourceY: y })}
+                onRoutePointMove={(index, x, y) => {
+                  const newRoute = [...irrigationState.pipeRoute];
+                  newRoute[index] = { x, y };
+                  onIrrigationStateChange({ pipeRoute: newRoute });
+                }}
+                onRoutePointAdd={(x, y) => {
+                  onIrrigationStateChange({
+                    pipeRoute: [...irrigationState.pipeRoute, { x, y }],
+                  });
+                }}
+                onRoutePointSelect={() => {}}
+              />
+            ) : null}
           </g>
         ) : null}
 
@@ -535,6 +572,26 @@ export function GardenMap({
       </svg>
 
       <PlantCategoryChips placements={placements} />
+
+      {filterMode === "water" && !irrigationState?.isEditing && (
+        <button
+          className="edit-irrigation-button"
+          onClick={() => onIrrigationStateChange?.({ isEditing: true })}
+          data-testid="edit-irrigation-button"
+        >
+          Editar red
+        </button>
+      )}
+
+      {irrigationState?.isEditing && onIrrigationStateChange && onIrrigationSave && (
+        <IrrigationEditor
+          state={irrigationState}
+          yardWidth={form.yard_width}
+          yardHeight={form.yard_height}
+          onStateChange={onIrrigationStateChange}
+          onSave={onIrrigationSave}
+        />
+      )}
 
       <div className="map-scale" aria-hidden="true">
         <span>1 m</span>
