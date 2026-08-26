@@ -235,11 +235,14 @@ export interface LegendItem {
   swatchClass?: string;
 }
 
+export type WaterSourceType = "house_tap" | "pump" | "well" | "tank" | "municipal";
+
 export interface IrrigationNetworkDesign {
   id?: string;
   layout?: string;
   water_source_x: number;
   water_source_y: number;
+  water_source_type?: WaterSourceType;
   main_pipe_route: Array<{ x: number; y: number }>;
   num_main_pipes: number;
 }
@@ -250,6 +253,17 @@ export interface IrrigationEditorState {
   sourceY: number;
   pipeRoute: Array<{ x: number; y: number }>;
   numPipes: 1 | 2 | 3 | 4;
+  waterSourceType?: WaterSourceType;
   isDirty: boolean;
   isSaving: boolean;
+}
+
+export interface LawnZone {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  water_need: WaterNeed;
+  liters_per_m2_week: number;
 }

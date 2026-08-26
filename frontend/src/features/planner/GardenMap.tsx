@@ -509,7 +509,7 @@ export function GardenMap({
 
           return (
             <g
-              key={`${placement.plant_id}-${index}`}
+              key={`${placement.plant_id}-${index}-${placement.x}-${placement.y}`}
               className={`plant-marker ${selected ? "selected" : ""} ${invalid ? "has-conflict" : ""}`}
               role="button"
               tabIndex={0}

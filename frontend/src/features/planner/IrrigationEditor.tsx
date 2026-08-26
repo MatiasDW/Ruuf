@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { IrrigationEditorState } from "./types";
+import type { IrrigationEditorState, WaterSourceType } from "./types";
 
 interface IrrigationEditorProps {
   state: IrrigationEditorState;
@@ -31,6 +31,12 @@ export function IrrigationEditor({
   const handleNumPipesChange = (num: 1 | 2 | 3 | 4) => {
     onStateChange({ numPipes: num, isDirty: true });
   };
+
+  const handleWaterSourceTypeChange = (type: WaterSourceType) => {
+    onStateChange({ waterSourceType: type, isDirty: true });
+  };
+
+  const currentWaterSourceType = state.waterSourceType || "house_tap";
 
   const handleAddRoutePoint = () => {
     const newRoute = [...state.pipeRoute, { x: state.sourceX, y: state.sourceY }];
@@ -105,6 +111,30 @@ export function IrrigationEditor({
                 aria-pressed={state.numPipes === num}
               >
                 {num}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Tipo de fuente de agua</label>
+          <div className="water-source-selector">
+            {[
+              { type: "house_tap", icon: "🚰", label: "Grifo de casa" },
+              { type: "pump", icon: "⛽", label: "Bomba" },
+              { type: "well", icon: "🕳️", label: "Pozo" },
+              { type: "tank", icon: "🪣", label: "Estanque" },
+              { type: "municipal", icon: "🏛️", label: "Municipal" },
+            ].map(({ type, icon, label }) => (
+              <button
+                key={type}
+                className={`water-source-button ${currentWaterSourceType === type ? "active" : ""}`}
+                onClick={() => handleWaterSourceTypeChange(type as WaterSourceType)}
+                title={label}
+                aria-pressed={currentWaterSourceType === type}
+              >
+                <span className="water-icon">{icon}</span>
+                <span className="water-label">{label}</span>
               </button>
             ))}
           </div>
