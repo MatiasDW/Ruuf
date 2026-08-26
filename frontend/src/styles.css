@@ -3245,3 +3245,51 @@ h3 {
 .edit-irrigation-button:active {
   transform: scale(0.98);
 }
+
+.lawn-zones-layer {
+  pointer-events: auto;
+}
+
+.lawn-zone-rect {
+  fill: rgba(192, 217, 180, 0.4);
+  stroke: #8db696;
+  stroke-width: 2;
+  stroke-dasharray: 4, 4;
+  rx: 8;
+  cursor: pointer;
+  transition: all 160ms ease;
+  vector-effect: non-scaling-stroke;
+}
+
+.lawn-zone-rect:hover {
+  fill: rgba(192, 217, 180, 0.6);
+  stroke-width: 2.5;
+}
+
+.lawn-zone.selected .lawn-zone-rect {
+  fill: rgba(192, 217, 180, 0.7);
+  stroke: #6b9d73;
+  stroke-width: 3;
+}
+
+.lawn-label {
+  fill: #2a5a3d;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: "Inter", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.8;
+}
+
+.lawn-zone-preview {
+  fill: rgba(192, 217, 180, 0.3);
+  stroke: #6b9d73;
+  stroke-width: 2;
+  stroke-dasharray: 6, 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.lawn-draw-mode .garden-map {
+  cursor: crosshair;
+}

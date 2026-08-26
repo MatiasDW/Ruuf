@@ -14,11 +14,13 @@ import type {
   FilterMode,
   HouseFormFields,
   IrrigationEditorState,
+  LawnZone,
   PersistenceView,
   Placement,
   PlanResult,
   PlannerForm,
   UnplacedItem,
+  WaterNeed,
 } from "../features/planner/types";
 
 interface PlanViewProps {
@@ -30,9 +32,15 @@ interface PlanViewProps {
   canRedo: boolean;
   persistence: PersistenceView;
   irrigationEditor: IrrigationEditorState;
+  lawnZones: LawnZone[];
+  lawnZoneDrawMode: boolean;
+  selectedLawnZoneId: string | null;
   onSignIn: (email: string, password: string) => Promise<boolean>;
   onSave: () => Promise<void>;
   onReloadRevision: (discardLocalEdit: boolean) => Promise<void>;
+  onSetLawnZones: (zones: LawnZone[]) => void;
+  onSetLawnZoneDrawMode: (mode: boolean) => void;
+  onSetSelectedLawnZoneId: (id: string | null) => void;
   onEditorGestureStart: () => void;
   onEditorGestureCommit: () => void;
   onEditorGestureCancel: () => void;
@@ -53,6 +61,12 @@ export function PlanView({
   error,
   irrigationEditor,
   onSetIrrigationEditor,
+  lawnZones,
+  lawnZoneDrawMode,
+  selectedLawnZoneId,
+  onSetLawnZones,
+  onSetLawnZoneDrawMode,
+  onSetSelectedLawnZoneId,
   canUndo,
   canRedo,
   persistence,
@@ -80,6 +94,8 @@ export function PlanView({
   const totalIssues = groupedIssues.length + editorConflicts.length;
   const selectedPlacement = selection?.kind === "plant" ? placements[selection.index] : undefined;
   const selectedValidation = selection?.kind === "plant" ? validations[selection.index] : undefined;
+  const selectedLawnZone =
+    selection?.kind === "lawn" ? lawnZones.find((z) => z.id === selection.id) : undefined;
   const legendItems = buildLegendItems(filterMode);
 
   useEffect(() => {
@@ -125,6 +141,15 @@ export function PlanView({
           <Link className="button quiet" to="/plantas">
             Editar plantas
           </Link>
+          {filterMode === "type" && (
+            <button
+              className={`button quiet ${lawnZoneDrawMode ? "active" : ""}`}
+              onClick={() => onSetLawnZoneDrawMode(!lawnZoneDrawMode)}
+              data-testid="add-lawn-zone-button"
+            >
+              {lawnZoneDrawMode ? "Cancelar" : "Agregar césped"}
+            </button>
+          )}
           <span className={totalIssues ? "fit-badge" : "fit-badge ready"}>
             {totalIssues ? `${totalIssues} ajustes` : "Sin conflictos"}
           </span>
@@ -225,6 +250,9 @@ export function PlanView({
                 zoom={zoom}
                 selection={selection}
                 irrigationState={irrigationEditor}
+                lawnZones={lawnZones}
+                lawnZoneDrawMode={lawnZoneDrawMode}
+                selectedLawnZoneId={selectedLawnZoneId}
                 onSelectionChange={setSelection}
                 onEditorGestureStart={onEditorGestureStart}
                 onEditorGestureCommit={onEditorGestureCommit}
@@ -232,6 +260,9 @@ export function PlanView({
                 onHousePreview={onHousePreview}
                 onPlacementChange={onPlacementChange}
                 onPlacementPreview={onPlacementPreview}
+                onSetLawnZones={onSetLawnZones}
+                onSetLawnZoneDrawMode={onSetLawnZoneDrawMode}
+                onSetSelectedLawnZoneId={onSetSelectedLawnZoneId}
                 onIrrigationStateChange={(partial) =>
                   onSetIrrigationEditor({ ...irrigationEditor, ...partial })
                 }
@@ -283,12 +314,20 @@ export function PlanView({
             selection={selection}
             placement={selectedPlacement}
             validation={selectedValidation}
+            lawnZone={selectedLawnZone}
             conflictCount={editorConflicts.length}
             onHouseChange={onHouseChange}
             onPlacementChange={(placement) => {
               if (selection?.kind === "plant") {
                 onPlacementChange(selection.index, placement);
               }
+            }}
+            onLawnZoneChange={(zone) =>
+              onSetLawnZones(lawnZones.map((z) => (z.id === zone.id ? zone : z)))
+            }
+            onDeleteLawnZone={(id) => {
+              onSetLawnZones(lawnZones.filter((z) => z.id !== id));
+              onSetSelectedLawnZoneId(null);
             }}
           />
 
@@ -376,9 +415,12 @@ interface EditorInspectorProps {
   selection: GardenSelection;
   placement?: Placement;
   validation?: ReturnType<typeof validatePlacements>[number];
+  lawnZone?: LawnZone;
   conflictCount: number;
   onHouseChange: (house: HouseFormFields) => void;
   onPlacementChange: (placement: Placement) => void;
+  onLawnZoneChange: (zone: LawnZone) => void;
+  onDeleteLawnZone: (id: string) => void;
 }
 
 function EditorInspector({
@@ -387,9 +429,12 @@ function EditorInspector({
   selection,
   placement,
   validation,
+  lawnZone,
   conflictCount,
   onHouseChange,
   onPlacementChange,
+  onLawnZoneChange,
+  onDeleteLawnZone,
 }: EditorInspectorProps) {
   if (selection?.kind === "house") {
     return (
@@ -444,6 +489,76 @@ function EditorInspector({
             onChange={(value) => onHouseChange({ ...pickHouse(form), obstacle_y: value })}
           />
         </div>
+      </section>
+    );
+  }
+
+  if (selection?.kind === "lawn" && lawnZone) {
+    return (
+      <section className="summary-card editor-inspector selected-inspector">
+        <div className="inspector-title">
+          <span className="selection-icon" aria-hidden="true">
+            🌿
+          </span>
+          <div>
+            <p className="eyebrow">Zona seleccionada</p>
+            <h2>Césped</h2>
+          </div>
+        </div>
+        <p className="inspector-help">
+          Arrastra para mover. Esquinas para redimensionar. Supr para eliminar.
+        </p>
+        <div className="inspector-fields two-fields">
+          <InspectorNumber
+            label="X"
+            value={lawnZone.x}
+            onChange={(x) => onLawnZoneChange({ ...lawnZone, x })}
+          />
+          <InspectorNumber
+            label="Y"
+            value={lawnZone.y}
+            onChange={(y) => onLawnZoneChange({ ...lawnZone, y })}
+          />
+          <InspectorNumber
+            label="Ancho"
+            value={lawnZone.width}
+            onChange={(width) => onLawnZoneChange({ ...lawnZone, width: Math.max(0.5, width) })}
+          />
+          <InspectorNumber
+            label="Alto"
+            value={lawnZone.height}
+            onChange={(height) => onLawnZoneChange({ ...lawnZone, height: Math.max(0.5, height) })}
+          />
+        </div>
+        <dl className="selection-facts">
+          <div>
+            <dt>Área</dt>
+            <dd>{(lawnZone.width * lawnZone.height).toFixed(1)} m²</dd>
+          </div>
+          <div>
+            <dt>Demanda</dt>
+            <dd>
+              <select
+                value={lawnZone.water_need}
+                onChange={(e) =>
+                  onLawnZoneChange({ ...lawnZone, water_need: e.target.value as WaterNeed })
+                }
+              >
+                <option value="low">Baja</option>
+                <option value="medium">Media</option>
+                <option value="high">Alta</option>
+              </select>
+            </dd>
+          </div>
+        </dl>
+        <button
+          type="button"
+          className="button quiet"
+          style={{ marginTop: "12px", width: "100%" }}
+          onClick={() => onDeleteLawnZone(lawnZone.id)}
+        >
+          Eliminar zona
+        </button>
       </section>
     );
   }

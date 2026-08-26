@@ -32,6 +32,7 @@ import {
 import type {
   HouseFormFields,
   IrrigationEditorState,
+  LawnZone,
   LayoutRevision,
   PlanResult,
   Placement,
@@ -78,6 +79,9 @@ function PlannerApplication() {
     isDirty: false,
     isSaving: false,
   });
+  const [lawnZones, setLawnZones] = useState<LawnZone[]>([]);
+  const [lawnZoneDrawMode, setLawnZoneDrawMode] = useState(false);
+  const [selectedLawnZoneId, setSelectedLawnZoneId] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -571,6 +575,12 @@ function PlannerApplication() {
               canRedo={hasRedoHistory(planner.editorHistory)}
               irrigationEditor={irrigationEditor}
               onSetIrrigationEditor={setIrrigationEditor}
+              lawnZones={lawnZones}
+              onSetLawnZones={setLawnZones}
+              lawnZoneDrawMode={lawnZoneDrawMode}
+              onSetLawnZoneDrawMode={setLawnZoneDrawMode}
+              selectedLawnZoneId={selectedLawnZoneId}
+              onSetSelectedLawnZoneId={setSelectedLawnZoneId}
               onEditorGestureStart={startEditorGesture}
               onEditorGestureCommit={commitEditorGesture}
               onEditorGestureCancel={cancelEditorGesture}

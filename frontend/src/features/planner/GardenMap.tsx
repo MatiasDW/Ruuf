@@ -1,7 +1,8 @@
 import {
+  useEffect,
   useRef,
   useState,
-  type KeyboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -17,11 +18,16 @@ import type {
   FilterMode,
   HouseFormFields,
   IrrigationEditorState,
+  LawnZone,
   Placement,
   PlannerForm,
 } from "./types";
 
-export type GardenSelection = { kind: "house" } | { kind: "plant"; index: number } | null;
+export type GardenSelection =
+  | { kind: "house" }
+  | { kind: "plant"; index: number }
+  | { kind: "lawn"; id: string }
+  | null;
 
 interface GardenMapProps {
   form: PlannerForm;
@@ -30,6 +36,9 @@ interface GardenMapProps {
   zoom: number;
   selection: GardenSelection;
   irrigationState?: IrrigationEditorState;
+  lawnZones: LawnZone[];
+  lawnZoneDrawMode: boolean;
+  selectedLawnZoneId: string | null;
   onSelectionChange: (selection: GardenSelection) => void;
   onEditorGestureStart: () => void;
   onEditorGestureCommit: () => void;
@@ -37,6 +46,9 @@ interface GardenMapProps {
   onHousePreview: (house: HouseFormFields) => void;
   onPlacementChange: (index: number, placement: Placement) => void;
   onPlacementPreview: (index: number, placement: Placement) => void;
+  onSetLawnZones: (zones: LawnZone[]) => void;
+  onSetLawnZoneDrawMode: (mode: boolean) => void;
+  onSetSelectedLawnZoneId: (id: string | null) => void;
   onIrrigationStateChange?: (state: Partial<IrrigationEditorState>) => void;
   onIrrigationSave?: () => Promise<void>;
 }
@@ -52,6 +64,16 @@ type DragState =
       startX: number;
       startY: number;
       house: { x: number; y: number; width: number; height: number };
+    }
+  | { kind: "lawn-move"; pointerId: number; id: string; offsetX: number; offsetY: number }
+  | {
+      kind: "lawn-resize";
+      pointerId: number;
+      id: string;
+      corner: ResizeCorner;
+      startX: number;
+      startY: number;
+      zone: { x: number; y: number; width: number; height: number };
     };
 
 const UNITS_PER_METER = 100;
@@ -64,6 +86,9 @@ export function GardenMap({
   zoom,
   selection,
   irrigationState,
+  lawnZones,
+  lawnZoneDrawMode,
+  selectedLawnZoneId,
   onSelectionChange,
   onEditorGestureStart,
   onEditorGestureCommit,
@@ -71,11 +96,31 @@ export function GardenMap({
   onHousePreview,
   onPlacementChange,
   onPlacementPreview,
+  onSetLawnZones,
+  onSetLawnZoneDrawMode,
+  onSetSelectedLawnZoneId,
   onIrrigationStateChange,
   onIrrigationSave,
 }: GardenMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [lawnDrawState, setLawnDrawState] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+
+  useEffect(() => {
+    function handleKeyDown(e: globalThis.KeyboardEvent) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedLawnZoneId) {
+        onSetLawnZones(lawnZones.filter((z) => z.id !== selectedLawnZoneId));
+        onSetSelectedLawnZoneId(null);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedLawnZoneId, lawnZones, onSetLawnZones, onSetSelectedLawnZoneId]);
   const worldWidth = form.yard_width * UNITS_PER_METER;
   const worldHeight = form.yard_height * UNITS_PER_METER;
   const visibleWidth = worldWidth / zoom;
@@ -140,6 +185,89 @@ export function GardenMap({
       offsetX: point.x - house.x,
       offsetY: point.y - house.y,
     });
+  }
+
+  function startLawnMove(event: ReactPointerEvent<SVGRectElement>, zone: LawnZone) {
+    const point = eventPoint(event);
+    if (!point) return;
+    event.preventDefault();
+    event.stopPropagation();
+    capturePointer(event.pointerId);
+    onSetSelectedLawnZoneId(zone.id);
+    onSelectionChange({ kind: "lawn", id: zone.id });
+    setDragState({
+      kind: "lawn-move",
+      pointerId: event.pointerId,
+      id: zone.id,
+      offsetX: point.x - zone.x * UNITS_PER_METER,
+      offsetY: point.y - zone.y * UNITS_PER_METER,
+    });
+  }
+
+  function startLawnResize(
+    event: ReactPointerEvent<SVGCircleElement>,
+    zone: LawnZone,
+    corner: ResizeCorner,
+  ) {
+    const point = eventPoint(event);
+    if (!point) return;
+    event.preventDefault();
+    event.stopPropagation();
+    capturePointer(event.pointerId);
+    setDragState({
+      kind: "lawn-resize",
+      pointerId: event.pointerId,
+      id: zone.id,
+      corner,
+      startX: point.x,
+      startY: point.y,
+      zone: { x: zone.x, y: zone.y, width: zone.width, height: zone.height },
+    });
+  }
+
+  function resizeLawnZone(
+    deltaX: number,
+    deltaY: number,
+    state: Extract<DragState, { kind: "lawn-resize" }>,
+  ) {
+    const minSize = 0.5;
+    let left = state.zone.x;
+    let right = state.zone.x + state.zone.width;
+    let top = state.zone.y;
+    let bottom = state.zone.y + state.zone.height;
+
+    if (state.corner.includes("w")) {
+      left = clamp(state.zone.x + deltaX / UNITS_PER_METER, 0, right - minSize);
+    } else {
+      right = clamp(
+        state.zone.x + state.zone.width + deltaX / UNITS_PER_METER,
+        left + minSize,
+        form.yard_width,
+      );
+    }
+    if (state.corner.includes("n")) {
+      top = clamp(state.zone.y + deltaY / UNITS_PER_METER, 0, bottom - minSize);
+    } else {
+      bottom = clamp(
+        state.zone.y + state.zone.height + deltaY / UNITS_PER_METER,
+        top + minSize,
+        form.yard_height,
+      );
+    }
+
+    onSetLawnZones(
+      lawnZones.map((z) =>
+        z.id === state.id
+          ? {
+              ...z,
+              x: snapMeters(left),
+              y: snapMeters(top),
+              width: snapMeters(right - left),
+              height: snapMeters(bottom - top),
+            }
+          : z,
+      ),
+    );
   }
 
   function startResize(event: ReactPointerEvent<SVGCircleElement>, corner: ResizeCorner) {
@@ -210,7 +338,27 @@ export function GardenMap({
       return;
     }
 
-    resizeHouse(point.x - dragState.startX, point.y - dragState.startY, dragState);
+    if (dragState.kind === "lawn-move") {
+      const zone = lawnZones.find((z) => z.id === dragState.id);
+      if (!zone) return;
+      const x = snapMeters(
+        clamp((point.x - dragState.offsetX) / UNITS_PER_METER, 0, form.yard_width - zone.width),
+      );
+      const y = snapMeters(
+        clamp((point.y - dragState.offsetY) / UNITS_PER_METER, 0, form.yard_height - zone.height),
+      );
+      onSetLawnZones(lawnZones.map((z) => (z.id === dragState.id ? { ...z, x, y } : z)));
+      return;
+    }
+
+    if (dragState.kind === "lawn-resize") {
+      resizeLawnZone(point.x - dragState.startX, point.y - dragState.startY, dragState);
+      return;
+    }
+
+    if (dragState.kind === "resize") {
+      resizeHouse(point.x - dragState.startX, point.y - dragState.startY, dragState);
+    }
   }
 
   function finishDrag(event: ReactPointerEvent<SVGSVGElement>) {
@@ -220,8 +368,9 @@ export function GardenMap({
     if (svgRef.current?.hasPointerCapture(event.pointerId)) {
       svgRef.current.releasePointerCapture(event.pointerId);
     }
+    const isLawnOp = dragState.kind === "lawn-move" || dragState.kind === "lawn-resize";
     setDragState(null);
-    onEditorGestureCommit();
+    if (!isLawnOp) onEditorGestureCommit();
   }
 
   function cancelDrag(event: ReactPointerEvent<SVGSVGElement>) {
@@ -231,8 +380,9 @@ export function GardenMap({
     if (svgRef.current?.hasPointerCapture(event.pointerId)) {
       svgRef.current.releasePointerCapture(event.pointerId);
     }
+    const isLawnOp = dragState.kind === "lawn-move" || dragState.kind === "lawn-resize";
     setDragState(null);
-    onEditorGestureCancel();
+    if (!isLawnOp) onEditorGestureCancel();
   }
 
   function resizeHouse(
@@ -266,7 +416,7 @@ export function GardenMap({
     });
   }
 
-  function movePlantWithKeyboard(event: KeyboardEvent<SVGGElement>, index: number) {
+  function movePlantWithKeyboard(event: ReactKeyboardEvent<SVGGElement>, index: number) {
     const deltas: Record<string, [number, number]> = {
       ArrowLeft: [-0.25, 0],
       ArrowRight: [0.25, 0],
@@ -300,8 +450,73 @@ export function GardenMap({
     return point.matrixTransform(matrix.inverse());
   }
 
+  function handleSvgPointerDown(event: ReactPointerEvent<SVGSVGElement>) {
+    if (lawnZoneDrawMode && event.button === 0) {
+      const point = eventPoint(event);
+      if (point) {
+        setLawnDrawState({
+          startX: point.x,
+          startY: point.y,
+          currentX: point.x,
+          currentY: point.y,
+        });
+        event.preventDefault();
+      }
+    } else {
+      onSelectionChange(null);
+    }
+  }
+
+  function handleSvgPointerMove(event: ReactPointerEvent<SVGSVGElement>) {
+    handlePointerMove(event);
+    if (lawnDrawState) {
+      const point = eventPoint(event);
+      if (point) {
+        setLawnDrawState((prev) =>
+          prev ? { ...prev, currentX: point.x, currentY: point.y } : null,
+        );
+      }
+    }
+  }
+
+  function handleSvgPointerUp(event: ReactPointerEvent<SVGSVGElement>) {
+    if (lawnDrawState) {
+      const point = eventPoint(event);
+      if (point) {
+        const x1 = Math.min(lawnDrawState.startX, point.x) / UNITS_PER_METER;
+        const y1 = Math.min(lawnDrawState.startY, point.y) / UNITS_PER_METER;
+        const x2 = Math.max(lawnDrawState.startX, point.x) / UNITS_PER_METER;
+        const y2 = Math.max(lawnDrawState.startY, point.y) / UNITS_PER_METER;
+
+        if (x2 - x1 > 0.5 && y2 - y1 > 0.5) {
+          const newZone: LawnZone = {
+            id: `lawn-${Date.now()}`,
+            x: x1,
+            y: y1,
+            width: x2 - x1,
+            height: y2 - y1,
+            water_need: "medium",
+            liters_per_m2_week: 0,
+          };
+          onSetLawnZones([...lawnZones, newZone]);
+          onSetLawnZoneDrawMode(false);
+        }
+      }
+      setLawnDrawState(null);
+    }
+    finishDrag(event);
+  }
+
   return (
-    <div className={dragState ? "garden-editor is-dragging" : "garden-editor"}>
+    <div
+      className={[
+        "garden-editor",
+        dragState ? "is-dragging" : "",
+        lawnZoneDrawMode ? "lawn-draw-mode" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <svg
         ref={svgRef}
         className="garden-map"
@@ -309,10 +524,10 @@ export function GardenMap({
         role="application"
         aria-label={`Editor de jardín de ${form.yard_width} por ${form.yard_height} metros con ${placements.length} plantas`}
         preserveAspectRatio="xMidYMid meet"
-        onPointerMove={handlePointerMove}
-        onPointerUp={finishDrag}
+        onPointerMove={handleSvgPointerMove}
+        onPointerUp={handleSvgPointerUp}
         onPointerCancel={cancelDrag}
-        onPointerDown={() => onSelectionChange(null)}
+        onPointerDown={handleSvgPointerDown}
       >
         <defs>
           <linearGradient id="yard-fill" x1="0" y1="0" x2="1" y2="1">
@@ -566,6 +781,77 @@ export function GardenMap({
             </g>
           );
         })}
+
+        <g className="lawn-zones-layer">
+          {lawnZones.map((zone) => {
+            const selected = selectedLawnZoneId === zone.id;
+            return (
+              <g key={zone.id} className={`lawn-zone ${selected ? "selected" : ""}`}>
+                <rect
+                  x={zone.x * UNITS_PER_METER}
+                  y={zone.y * UNITS_PER_METER}
+                  width={zone.width * UNITS_PER_METER}
+                  height={zone.height * UNITS_PER_METER}
+                  className="lawn-zone-rect"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Zona de césped ${(zone.width * zone.height).toFixed(1)} m²`}
+                  onPointerDown={(e) => startLawnMove(e, zone)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Delete" || e.key === "Backspace") {
+                      onSetLawnZones(lawnZones.filter((z) => z.id !== zone.id));
+                      onSetSelectedLawnZoneId(null);
+                    }
+                  }}
+                />
+                <text
+                  x={(zone.x + zone.width / 2) * UNITS_PER_METER}
+                  y={(zone.y + zone.height / 2) * UNITS_PER_METER}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="lawn-label"
+                  pointerEvents="none"
+                >
+                  Césped
+                </text>
+              </g>
+            );
+          })}
+        </g>
+
+        {selection?.kind === "lawn" &&
+          (() => {
+            const zone = lawnZones.find((z) => z.id === selection.id);
+            if (!zone) return null;
+            return (
+              <g
+                className="resize-handles lawn-resize-handles"
+                aria-label="Controles para redimensionar la zona de césped"
+              >
+                {lawnZoneHandles(zone).map((handle) => (
+                  <circle
+                    key={handle.corner}
+                    cx={handle.x * UNITS_PER_METER}
+                    cy={handle.y * UNITS_PER_METER}
+                    r={handleSize}
+                    onPointerDown={(e) => startLawnResize(e, zone, handle.corner)}
+                    data-testid={`lawn-resize-${handle.corner}`}
+                  />
+                ))}
+              </g>
+            );
+          })()}
+
+        {lawnDrawState && (
+          <rect
+            x={Math.min(lawnDrawState.startX, lawnDrawState.currentX)}
+            y={Math.min(lawnDrawState.startY, lawnDrawState.currentY)}
+            width={Math.abs(lawnDrawState.currentX - lawnDrawState.startX)}
+            height={Math.abs(lawnDrawState.currentY - lawnDrawState.startY)}
+            className="lawn-zone-preview"
+            pointerEvents="none"
+          />
+        )}
       </svg>
 
       <PlantCategoryChips placements={placements} />
@@ -640,6 +926,15 @@ function houseHandles(house: { x: number; y: number; width: number; height: numb
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(value, Math.max(minimum, maximum)));
+}
+
+function lawnZoneHandles(zone: LawnZone) {
+  return [
+    { corner: "nw" as const, x: zone.x, y: zone.y },
+    { corner: "ne" as const, x: zone.x + zone.width, y: zone.y },
+    { corner: "se" as const, x: zone.x + zone.width, y: zone.y + zone.height },
+    { corner: "sw" as const, x: zone.x, y: zone.y + zone.height },
+  ];
 }
 
 interface CategoryCount {
