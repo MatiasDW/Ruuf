@@ -2407,6 +2407,91 @@ h3 {
   fill: #bce6ef;
 }
 
+.plant-category-chips {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(248, 250, 248, 0.94);
+  border: 1px solid rgba(114, 121, 114, 0.26);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(22, 52, 34, 0.1);
+  backdrop-filter: blur(14px);
+  pointer-events: auto;
+  max-width: 400px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(114, 121, 114, 0.2);
+  font-family: "Inter", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #3f4c44;
+  cursor: default;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.chip-icon {
+  font-size: 1rem;
+}
+
+.chip-label {
+  min-width: 50px;
+}
+
+.chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 0 4px;
+  background: rgba(22, 52, 34, 0.08);
+  border-radius: 6px;
+  font-weight: 700;
+  color: #163422;
+}
+
+.chip-tree {
+  background: rgba(200, 235, 208, 0.5);
+  border-color: rgba(22, 52, 34, 0.15);
+}
+
+.chip-shrub {
+  background: rgba(204, 234, 207, 0.5);
+  border-color: rgba(74, 101, 79, 0.15);
+}
+
+.chip-flower {
+  background: rgba(255, 219, 208, 0.5);
+  border-color: rgba(66, 40, 32, 0.15);
+}
+
+.chip-grass {
+  background: rgba(225, 227, 225, 0.5);
+  border-color: rgba(114, 121, 114, 0.15);
+}
+
+.is-dragging .plant-marker {
+  opacity: 0.85;
+  filter: drop-shadow(0 12px 24px rgba(22, 52, 34, 0.2));
+}
+
+.is-dragging .plant-marker.selected {
+  transform: scale(1.08);
+}
+
 .map-scale,
 .map-instruction {
   position: absolute;

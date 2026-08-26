@@ -313,16 +313,16 @@ export function GardenMap({
             <path
               d="M 100 0 L 0 0 0 100"
               fill="none"
-              stroke="#76877b"
-              strokeWidth="2"
-              opacity="0.14"
+              stroke="#8a9c8f"
+              strokeWidth="2.5"
+              opacity="0.25"
             />
             <path
               d="M 50 0 V 100 M 0 50 H 100"
               fill="none"
-              stroke="#76877b"
-              strokeWidth="1"
-              opacity="0.07"
+              stroke="#8a9c8f"
+              strokeWidth="1.2"
+              opacity="0.15"
             />
           </pattern>
           <filter id="map-shadow" x="-30%" y="-30%" width="160%" height="160%">
@@ -534,6 +534,8 @@ export function GardenMap({
         })}
       </svg>
 
+      <PlantCategoryChips placements={placements} />
+
       <div className="map-scale" aria-hidden="true">
         <span>1 m</span>
         <i />
@@ -586,4 +588,56 @@ function houseHandles(house: { x: number; y: number; width: number; height: numb
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(value, Math.max(minimum, maximum)));
+}
+
+interface CategoryCount {
+  tree: number;
+  shrub: number;
+  flower: number;
+  grass: number;
+}
+
+function countPlantsByCategory(placements: Placement[]): CategoryCount {
+  const counts: CategoryCount = { tree: 0, shrub: 0, flower: 0, grass: 0 };
+  for (const placement of placements) {
+    const category = inferCategory(placement.name);
+    if (category === "tree") counts.tree += 1;
+    else if (category === "shrub") counts.shrub += 1;
+    else if (category === "flower") counts.flower += 1;
+    else if (category === "grass") counts.grass += 1;
+  }
+  return counts;
+}
+
+interface PlantCategoryChipsProps {
+  placements: Placement[];
+}
+
+function PlantCategoryChips({ placements }: PlantCategoryChipsProps) {
+  const counts = countPlantsByCategory(placements);
+
+  return (
+    <div className="plant-category-chips" data-testid="plant-category-chips">
+      <div className="chip chip-tree">
+        <span className="chip-icon">🌲</span>
+        <span className="chip-label">Árbol</span>
+        <span className="chip-count">{counts.tree}</span>
+      </div>
+      <div className="chip chip-shrub">
+        <span className="chip-icon">🌳</span>
+        <span className="chip-label">Arbusto</span>
+        <span className="chip-count">{counts.shrub}</span>
+      </div>
+      <div className="chip chip-flower">
+        <span className="chip-icon">🌸</span>
+        <span className="chip-label">Flor</span>
+        <span className="chip-count">{counts.flower}</span>
+      </div>
+      <div className="chip chip-grass">
+        <span className="chip-icon">🌾</span>
+        <span className="chip-label">Césped</span>
+        <span className="chip-count">{counts.grass}</span>
+      </div>
+    </div>
+  );
 }
