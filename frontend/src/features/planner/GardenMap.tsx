@@ -289,10 +289,11 @@ export function GardenMap({
 
   function eventPoint(event: ReactPointerEvent<SVGElement>) {
     const svg = svgRef.current;
-    const matrix = svg?.getScreenCTM();
-    if (!svg || !matrix) {
-      return null;
-    }
+    if (!svg) return null;
+
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return null;
+
     const point = svg.createSVGPoint();
     point.x = event.clientX;
     point.y = event.clientY;
@@ -386,19 +387,6 @@ export function GardenMap({
 
         {filterMode === "water" ? (
           <g className="irrigation-layer" aria-label="Red de riego">
-            {placements.map((placement, index) => {
-              const reach = irrigationReachMeters(placement) * UNITS_PER_METER;
-              return (
-                <circle
-                  key={`coverage-${placement.plant_id}-${index}`}
-                  className={`water-coverage water-${placement.water_need}`}
-                  cx={placement.x * UNITS_PER_METER}
-                  cy={placement.y * UNITS_PER_METER}
-                  r={reach}
-                  fill="url(#water-coverage)"
-                />
-              );
-            })}
             {irrigationZones.map((zone) => {
               const hubX = zone.x * UNITS_PER_METER;
               const hubY = zone.y * UNITS_PER_METER;
@@ -531,6 +519,15 @@ export function GardenMap({
               onKeyDown={(event) => movePlantWithKeyboard(event, index)}
               data-testid={`plant-marker-${index}`}
             >
+              {filterMode === "water" ? (
+                <circle
+                  className={`water-coverage water-${placement.water_need}`}
+                  cx={placement.x * UNITS_PER_METER}
+                  cy={placement.y * UNITS_PER_METER}
+                  r={irrigationReachMeters(placement) * UNITS_PER_METER}
+                  fill="url(#water-coverage)"
+                />
+              ) : null}
               {filterMode === "type" || invalid || selected ? (
                 <circle
                   className="clearance-ring"
@@ -594,16 +591,14 @@ export function GardenMap({
       )}
 
       <div className="map-scale" aria-hidden="true">
+        <div className="scale-bar">
+          <div className="scale-mark" />
+          <div className="scale-tick" />
+          <div className="scale-tick" />
+          <div className="scale-tick" />
+          <div className="scale-mark" />
+        </div>
         <span>1 m</span>
-        <i />
-      </div>
-      <div className="map-instruction">
-        <strong>{filterMode === "water" ? "Riego referencial" : "Edición activa"}</strong>
-        <span>
-          {filterMode === "water"
-            ? `${irrigationZones.length} zonas · tuberías y alcance de emisores`
-            : "Arrastra plantas o la casa. Los conflictos aparecen en rojo."}
-        </span>
       </div>
     </div>
   );

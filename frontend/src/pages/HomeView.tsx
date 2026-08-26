@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { Link } from "react-router-dom";
+import { motion, useScroll, useTransform } from "framer-motion";
 import type { PlanResult } from "../features/planner/types";
 
 interface HomeViewProps {
@@ -7,32 +9,76 @@ interface HomeViewProps {
 }
 
 export function HomeView({ result, plantCount }: HomeViewProps) {
+  const heroVisualRef = useRef<HTMLDivElement>(null);
+  const { scrollY } = useScroll();
+  const heroY = useTransform(scrollY, [0, 300], [0, 50]);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.2, delayChildren: 0.1 },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
+  };
+
   return (
     <div className="home-view page-enter">
       <section className="hero-section">
-        <div className="hero-copy">
-          <p className="eyebrow">Anteproyectos de paisajismo residencial</p>
-          <h1>Un jardín que se siente tuyo y funciona en el mundo real.</h1>
-          <p className="hero-lead">
+        <motion.div
+          className="hero-copy"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          variants={containerVariants}
+        >
+          <motion.p className="eyebrow" variants={itemVariants}>
+            Anteproyectos de paisajismo residencial
+          </motion.p>
+          <motion.h1 variants={itemVariants}>
+            Un jardín que se siente tuyo y funciona en el mundo real.
+          </motion.h1>
+          <motion.p className="hero-lead" variants={itemVariants}>
             Ingresa las medidas, elige las especies que te gustan y recibe una propuesta que
             considera espacio, compatibilidad, riego y costo mensual.
-          </p>
-          <div className="hero-actions">
-            <Link className="button primary" to="/proyecto">
-              Crear mi jardín
-            </Link>
-            <Link className="button quiet" to="/plan">
-              Ver propuesta demo
-            </Link>
-          </div>
-          <div className="trust-line" aria-label="Características del servicio">
+          </motion.p>
+          <motion.div className="hero-actions" variants={itemVariants}>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link className="button primary" to="/proyecto">
+                Crear mi jardín
+              </Link>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link className="button quiet" to="/plan">
+                Ver propuesta demo
+              </Link>
+            </motion.div>
+          </motion.div>
+          <motion.div
+            className="trust-line"
+            aria-label="Características del servicio"
+            variants={itemVariants}
+          >
             <span>Medidas en metros</span>
             <span>Catálogo para Chile</span>
             <span>Anteproyecto editable</span>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
-        <div className="hero-visual" aria-label="Vista previa de un jardín planificado">
+        <motion.div
+          ref={heroVisualRef}
+          className="hero-visual"
+          aria-label="Vista previa de un jardín planificado"
+          style={{ y: heroY }}
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
           <div className="sun-disc" />
           <div className="preview-plan">
             <div className="preview-plan-header">
@@ -58,32 +104,51 @@ export function HomeView({ result, plantCount }: HomeViewProps) {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       </section>
 
-      <section className="process-section" aria-labelledby="process-title">
+      <motion.section
+        className="process-section"
+        aria-labelledby="process-title"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={containerVariants}
+      >
         <div className="section-intro">
-          <p className="eyebrow">Simple por fuera, riguroso por dentro</p>
-          <h2 id="process-title">De una idea a un plano explicable.</h2>
+          <motion.p className="eyebrow" variants={itemVariants}>
+            Simple por fuera, riguroso por dentro
+          </motion.p>
+          <motion.h2 id="process-title" variants={itemVariants}>
+            De una idea a un plano explicable.
+          </motion.h2>
         </div>
         <div className="process-grid">
-          <article>
-            <span>01</span>
-            <h3>Describe el espacio</h3>
-            <p>Medidas generales, casa, sol y estilo. No pedimos datos técnicos innecesarios.</p>
-          </article>
-          <article>
-            <span>02</span>
-            <h3>Arma tu selección</h3>
-            <p>Elige árboles y plantas; te mostramos espacio vital y demanda de agua.</p>
-          </article>
-          <article>
-            <span>03</span>
-            <h3>Revisa la propuesta</h3>
-            <p>Entiende qué cabe, qué conviene reemplazar y cuánto riego requiere.</p>
-          </article>
+          {[
+            {
+              num: "01",
+              title: "Describe el espacio",
+              desc: "Medidas generales, casa, sol y estilo. No pedimos datos técnicos innecesarios.",
+            },
+            {
+              num: "02",
+              title: "Arma tu selección",
+              desc: "Elige árboles y plantas; te mostramos espacio vital y demanda de agua.",
+            },
+            {
+              num: "03",
+              title: "Revisa la propuesta",
+              desc: "Entiende qué cabe, qué conviene reemplazar y cuánto riego requiere.",
+            },
+          ].map((step, i) => (
+            <motion.article key={i} variants={itemVariants}>
+              <span>{step.num}</span>
+              <h3>{step.title}</h3>
+              <p>{step.desc}</p>
+            </motion.article>
+          ))}
         </div>
-      </section>
+      </motion.section>
     </div>
   );
 }

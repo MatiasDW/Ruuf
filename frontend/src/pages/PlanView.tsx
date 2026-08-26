@@ -273,11 +273,6 @@ export function PlanView({
                 ))}
               </div>
             )}
-            <p>
-              {filterMode === "water"
-                ? "Trazado L1 referencial: un especialista debe definir presión, diámetros y emisores."
-                : "Los anillos son radios mínimos. Rojo significa que la ubicación necesita corrección."}
-            </p>
           </div>
         </section>
 
@@ -523,12 +518,12 @@ function EditorInspector({
           ? "Las líneas muestran tuberías sugeridas por demanda y los círculos azules, alcance aproximado."
           : "Haz clic en la casa o una planta para editar medidas, forma y posición."}
       </p>
-      <div className={conflictCount ? "editor-health has-errors" : "editor-health"}>
-        <span aria-hidden="true" />
-        {conflictCount
-          ? `${conflictCount} elementos con interferencias`
-          : "Geometría sin interferencias"}
-      </div>
+      {conflictCount > 0 && (
+        <div className="editor-health has-errors">
+          <span aria-hidden="true" />
+          {`${conflictCount} elementos con interferencias`}
+        </div>
+      )}
     </section>
   );
 }

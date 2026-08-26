@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
+import Lenis from "@studio-freight/lenis";
 import type { SystemHealth } from "../features/planner/types";
 
 interface AppShellProps {
@@ -15,6 +17,26 @@ const navigation = [
 
 export function AppShell({ children, systemHealth }: AppShellProps) {
   const online = systemHealth?.status === "ok";
+
+  useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      syncTouch: false,
+      touchMultiplier: 2,
+    });
+
+    function raf(time: number) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+
+    requestAnimationFrame(raf);
+
+    return () => {
+      lenis.destroy();
+    };
+  }, []);
 
   return (
     <div className="site-shell">
