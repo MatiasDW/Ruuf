@@ -6,6 +6,28 @@ from dataclasses import dataclass
 
 ENGINE_VERSION = "grid-v2"
 
+FEATURE_CLEARANCE_M = {
+    "pool": 1.5,
+    "quincho": 1.0,
+    "terrace": 0.5,
+    "path": 0.0,
+}
+
+
+def get_feature_clearance(feature_type: str) -> float:
+    """Get clearance distance (meters) for a non-plantable feature type.
+
+    Clearance values define the minimum distance plants must maintain from
+    each feature type:
+    - pool: 1.5m (high water activity, splash hazard)
+    - quincho: 1.0m (occasional gathering/fire)
+    - terrace: 0.5m (foot traffic, minor maintenance)
+    - path: 0.0m (path itself creates no plantable exclusion)
+
+    Returns 0.0 for unknown types (feature is not an obstacle).
+    """
+    return FEATURE_CLEARANCE_M.get(feature_type, 0.0)
+
 
 @dataclass(frozen=True)
 class PlantSpec:
@@ -34,6 +56,7 @@ class RectangleObstacle:
     width: float
     height: float
     label: str = "Obstacle"
+    feature_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -89,7 +112,10 @@ def _inside_yard(x: float, y: float, radius: float, yard_width: float, yard_heig
 def _distance_to_rectangle(x: float, y: float, obstacle: RectangleObstacle) -> float:
     closest_x = max(obstacle.x, min(x, obstacle.x + obstacle.width))
     closest_y = max(obstacle.y, min(y, obstacle.y + obstacle.height))
-    return _distance(x, y, closest_x, closest_y)
+    euclidean = _distance(x, y, closest_x, closest_y)
+    if hasattr(obstacle, "feature_type") and obstacle.feature_type:
+        return euclidean - get_feature_clearance(obstacle.feature_type)
+    return euclidean
 
 
 def validate_placement(

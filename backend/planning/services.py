@@ -308,8 +308,11 @@ def persist_generated_plan(
 def _obstacles_for_version(site_version: SiteVersion) -> tuple[RectangleObstacle, ...]:
     obstacles: list[RectangleObstacle] = []
     for feature in site_version.features.all():
+        if feature.plantable:
+            continue
         geometry = feature.geometry
-        if geometry.get("type") != "rectangle":
+        # El flujo legado guarda "rectangle"; la API de BE-106 guarda "rect".
+        if geometry.get("type") not in ("rectangle", "rect"):
             continue
         obstacles.append(
             RectangleObstacle(
@@ -318,6 +321,7 @@ def _obstacles_for_version(site_version: SiteVersion) -> tuple[RectangleObstacle
                 width=float(geometry["width"]),
                 height=float(geometry["height"]),
                 label=feature.label,
+                feature_type=feature.feature_type,
             )
         )
     return tuple(obstacles)

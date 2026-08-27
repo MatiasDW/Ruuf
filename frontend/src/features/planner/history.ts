@@ -28,6 +28,9 @@ export function pickHouseFields(form: PlannerForm): HouseFormFields {
     obstacle_x: form.obstacle_x,
     obstacle_y: form.obstacle_y,
     house_shape: form.house_shape,
+    // La clave siempre va presente (aunque sea undefined) para que el spread de
+    // applyHouseFields borre el polígono al deshacer un preset.
+    house_polygon: form.house_polygon?.map((point) => ({ ...point })),
   };
 }
 
@@ -107,8 +110,25 @@ function houseFieldsEqual(first: HouseFormFields, second: HouseFormFields): bool
     first.obstacle_height === second.obstacle_height &&
     first.obstacle_x === second.obstacle_x &&
     first.obstacle_y === second.obstacle_y &&
-    first.house_shape === second.house_shape
+    first.house_shape === second.house_shape &&
+    housePolygonsEqual(first.house_polygon, second.house_polygon)
   );
+}
+
+function housePolygonsEqual(
+  first: HouseFormFields["house_polygon"],
+  second: HouseFormFields["house_polygon"],
+): boolean {
+  if (!first || !second) {
+    return !first === !second;
+  }
+  if (first.length !== second.length) {
+    return false;
+  }
+  return first.every((point, index) => {
+    const other = second[index];
+    return other !== undefined && point.x === other.x && point.y === other.y;
+  });
 }
 
 function placementsEqual(first: Placement[], second: Placement[]): boolean {
@@ -136,7 +156,10 @@ function placementsEqual(first: Placement[], second: Placement[]): boolean {
 
 function cloneSnapshot(snapshot: EditorSnapshot): EditorSnapshot {
   return {
-    house: { ...snapshot.house },
+    house: {
+      ...snapshot.house,
+      house_polygon: snapshot.house.house_polygon?.map((point) => ({ ...point })),
+    },
     placements: snapshot.placements.map(clonePlacement),
   };
 }

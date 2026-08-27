@@ -357,7 +357,13 @@ class GrassSpeciesViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class GrassSpeciesPublicViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = GrassSpecies.objects.filter(provenance="verified")
+    """Superficie compat sin auth; sirve el catálogo completo igual que /api/plants.
+
+    El campo provenance viaja en el payload para que el cliente distinga datos
+    prototype_unverified de datos verificados.
+    """
+
+    queryset = GrassSpecies.objects.all()
     serializer_class = GrassSpeciesSerializer
     permission_classes = [AllowAny]
 

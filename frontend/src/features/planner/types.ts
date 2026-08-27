@@ -270,6 +270,7 @@ export interface LawnZone {
   y: number;
   width: number;
   height: number;
+  polygon?: Point[];
   water_need: WaterNeed;
   liters_per_m2_week: number;
 }

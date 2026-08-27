@@ -5,6 +5,7 @@ import {
   polygonLabelAnchor,
   polygonSelfIntersects,
   buildIrrigationZones,
+  polygonArea,
 } from "./editor";
 import type { Placement, Point, WaterNeed } from "./types";
 
@@ -264,5 +265,44 @@ describe("polygonLabelAnchor", () => {
     ];
     const anchor = polygonLabelAnchor(zigzag);
     expect(pointInPolygon(anchor, zigzag)).toBe(true);
+  });
+});
+
+describe("polygonArea", () => {
+  it("calculates area of square", () => {
+    const square: Point[] = [
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 4, y: 3 },
+      { x: 0, y: 3 },
+    ];
+    const area = polygonArea(square);
+    expect(area).toBeCloseTo(12, 1); // 4 * 3 = 12
+  });
+
+  it("calculates area of triangle", () => {
+    const triangle: Point[] = [
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 2, y: 3 },
+    ];
+    const area = polygonArea(triangle);
+    expect(area).toBeCloseTo(6, 1); // (4 * 3) / 2 = 6
+  });
+
+  it("handles polygon with less than 3 vertices", () => {
+    const line: Point[] = [{ x: 0, y: 0 }, { x: 1, y: 1 }];
+    expect(polygonArea(line)).toBe(0);
+  });
+
+  it("calculates area of rectangle", () => {
+    const rect: Point[] = [
+      { x: 0, y: 0 },
+      { x: 5, y: 0 },
+      { x: 5, y: 2 },
+      { x: 0, y: 2 },
+    ];
+    const area = polygonArea(rect);
+    expect(area).toBeCloseTo(10, 1); // 5 * 2 = 10
   });
 });
