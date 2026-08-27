@@ -98,7 +98,13 @@ class IrrigationEstimate(UUIDTimeStampedModel):
 
 
 class IrrigationNetworkDesign(UUIDTimeStampedModel):
-    """Editable irrigation network: water source location, pipe route, & zone connections."""
+    """Editable irrigation network: water source location, type, pipe route, & zones."""
+
+    class WaterSourceType(models.TextChoices):
+        POTABLE = "potable", "Potable (red pública)"
+        WELL = "well", "Well (pozo)"
+        RAINWATER = "rainwater", "Rainwater (recolección)"
+        GREY = "grey", "Grey water (reutilizada)"
 
     layout = models.OneToOneField(
         Layout, on_delete=models.CASCADE, related_name="irrigation_network_design"
@@ -108,6 +114,9 @@ class IrrigationNetworkDesign(UUIDTimeStampedModel):
     )
     water_source_y = models.DecimalField(
         max_digits=10, decimal_places=3, validators=[MinValueValidator(Decimal("0"))]
+    )
+    water_source_type = models.CharField(
+        max_length=20, choices=WaterSourceType.choices, default=WaterSourceType.POTABLE
     )
     main_pipe_route = models.JSONField(
         default=list,

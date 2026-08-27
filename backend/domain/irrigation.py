@@ -3,7 +3,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from projects.models import SiteVersion
 
 WEEKS_PER_MONTH = Decimal("4.345")
 
@@ -33,6 +36,30 @@ def money(value: Decimal) -> Decimal:
 
 def volume(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+
+
+def calculate_lawn_zone_water(site_version: SiteVersion) -> Decimal:
+    """Calculate total weekly water consumption for all lawn zones in a site version.
+
+    Lawn zones are rectangles with {x, y, width, height} geometry.
+    Weekly liters = area_m2 x liters_per_m2_week.
+    """
+    total_liters = Decimal(0)
+
+    for feature in site_version.features.filter(feature_type="lawn_zone"):
+        if not feature.liters_per_m2_week:
+            continue
+
+        geometry = feature.geometry or {}
+        width = Decimal(str(geometry.get("width", 0)))
+        height = Decimal(str(geometry.get("height", 0)))
+        area_m2 = width * height
+
+        liters_per_m2 = feature.liters_per_m2_week
+        weekly_liters = area_m2 * liters_per_m2
+        total_liters += weekly_liters
+
+    return total_liters
 
 
 def estimate_irrigation(

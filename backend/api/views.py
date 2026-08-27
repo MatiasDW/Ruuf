@@ -458,6 +458,7 @@ class LayoutViewSet(viewsets.ModelViewSet):
             defaults={
                 "water_source_x": validated.get("water_source_x", 0),
                 "water_source_y": validated.get("water_source_y", 0),
+                "water_source_type": validated.get("water_source_type", "potable"),
                 "main_pipe_route": validated.get("main_pipe_route", []),
                 "num_main_pipes": validated.get("num_main_pipes", 1),
             },

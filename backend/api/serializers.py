@@ -448,6 +448,7 @@ class IrrigationNetworkDesignSerializer(serializers.ModelSerializer):
             "layout",
             "water_source_x",
             "water_source_y",
+            "water_source_type",
             "main_pipe_route",
             "num_main_pipes",
             "zones",
