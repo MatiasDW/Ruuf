@@ -52,6 +52,8 @@ services:
       RUN_MIGRATIONS: "1"
     ports:
       - "${BACKEND_PORT:-5050}:8000"
+    volumes:
+      - ./backend:/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 10s
@@ -76,6 +78,8 @@ services:
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       DJANGO_DEBUG: "1"
+    volumes:
+      - ./backend:/app
 
   frontend:
     build:
@@ -88,6 +92,12 @@ services:
         condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
+    # El código fuente se monta para que Vite sirva siempre el árbol actual con HMR;
+    # sin esto el contenedor queda congelado en la copia del último build de imagen.
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
 
 volumes:
   postgres_data:

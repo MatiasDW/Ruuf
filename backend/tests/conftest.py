@@ -17,6 +17,11 @@ def seeded_catalog(db: object) -> None:
 
 
 @pytest.fixture
+def seeded_groups(db: object) -> None:
+    call_command("init_groups", verbosity=0)
+
+
+@pytest.fixture
 def user(db: object) -> User:
     return User.objects.create_user(
         email="owner@example.com", password="Strong-pass-482!", display_name="Owner"
@@ -60,6 +65,12 @@ def user_factory(db: object) -> Callable[..., User]:
         return User.objects.create_user(**values)
 
     return factory
+
+
+@pytest.fixture
+def layout(project):
+    from planning.models import Layout
+    return Layout.objects.create(project=project, name="Test Layout")
 
 
 @pytest.fixture

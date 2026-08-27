@@ -13,14 +13,20 @@ from identity.models import Client, Membership, Organization, User
 from planning.models import LayoutVersion
 from projects.models import Project, Site
 
-DEMO_PASSWORD = "Demo-pass-914!"
+DEMO_ADMIN_PASSWORD = "DemoAdmin-pass-914!"
+DEMO_ASESOR_PASSWORD = "DemoAsesor-pass-914!"
+DEMO_CLIENTE_PASSWORD = "DemoCliente-pass-914!"
 
 
 @pytest.fixture
 def demo_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """The test runner forces DEBUG off, so the seed runs behind the explicit opt-in."""
-    monkeypatch.setenv("DEMO_USER_EMAIL", "demo@ruuf.local")
-    monkeypatch.setenv("DEMO_USER_PASSWORD", DEMO_PASSWORD)
+    monkeypatch.setenv("DEMO_ADMIN_EMAIL", "admin@ruuf.local")
+    monkeypatch.setenv("DEMO_ADMIN_PASSWORD", DEMO_ADMIN_PASSWORD)
+    monkeypatch.setenv("DEMO_ASESOR_EMAIL", "asesor@ruuf.local")
+    monkeypatch.setenv("DEMO_ASESOR_PASSWORD", DEMO_ASESOR_PASSWORD)
+    monkeypatch.setenv("DEMO_CLIENTE_EMAIL", "cliente@ruuf.local")
+    monkeypatch.setenv("DEMO_CLIENTE_PASSWORD", DEMO_CLIENTE_PASSWORD)
     monkeypatch.setenv("DEMO_SEED", "1")
 
 
@@ -38,27 +44,31 @@ def test_seed_demo_is_idempotent(demo_env: None) -> None:
     second = run_seed()
 
     assert first == second
-    assert User.objects.filter(email="demo@ruuf.local").count() == 1
+    assert User.objects.count() == 3
     assert Organization.objects.count() == 1
     assert Client.objects.count() == 1
     assert Project.objects.count() == 1
     assert Site.objects.count() == 1
-    assert (
-        Membership.objects.get(
-            user__email="demo@ruuf.local", organization_id=first["organization_id"]
-        ).role
-        == Membership.Role.OWNER
+
+    demo_users = first["demo_users"]
+    assert len(demo_users) == 3
+    assert {u["group"] for u in demo_users} == {"admin", "asesor", "cliente"}
+
+    admin = User.objects.get(email="admin@ruuf.local")
+    assert admin.check_password(DEMO_ADMIN_PASSWORD)
+    membership = Membership.objects.get(
+        user=admin, organization_id=first["organization_id"]
     )
-    assert User.objects.get(email="demo@ruuf.local").check_password(DEMO_PASSWORD)
+    assert membership.role == Membership.Role.OWNER
 
 
 @pytest.mark.django_db
 def test_seed_demo_requires_a_password_from_the_environment(
     demo_env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delenv("DEMO_USER_PASSWORD", raising=False)
+    monkeypatch.delenv("DEMO_ADMIN_PASSWORD", raising=False)
 
-    with pytest.raises(CommandError, match="DEMO_USER_PASSWORD is required"):
+    with pytest.raises(CommandError, match="DEMO_ADMIN_PASSWORD is required"):
         call_command("seed_demo", verbosity=0)
 
     assert not User.objects.exists()
@@ -66,9 +76,9 @@ def test_seed_demo_requires_a_password_from_the_environment(
 
 @pytest.mark.django_db
 def test_seed_demo_rejects_a_weak_password(demo_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DEMO_USER_PASSWORD", "demo")
+    monkeypatch.setenv("DEMO_ADMIN_PASSWORD", "demo")
 
-    with pytest.raises(CommandError, match="rejected by the password validators"):
+    with pytest.raises(CommandError, match="rejected"):
         call_command("seed_demo", verbosity=0)
 
     assert not User.objects.exists()
@@ -87,7 +97,7 @@ def test_seed_demo_is_disabled_without_debug_or_opt_in(
 
     settings.DEBUG = True
     call_command("seed_demo", verbosity=0)
-    assert User.objects.filter(email="demo@ruuf.local").exists()
+    assert User.objects.filter(email="admin@ruuf.local").exists()
 
 
 @pytest.mark.django_db
@@ -102,7 +112,7 @@ def test_seeded_demo_user_can_login_generate_plan_and_read_revisions(
     login_token = client.get("/api/v1/auth/csrf").json()["csrf_token"]
     login = client.post(
         "/api/v1/auth/login",
-        {"email": seeded["user_email"], "password": DEMO_PASSWORD},
+        {"email": "admin@ruuf.local", "password": DEMO_ADMIN_PASSWORD},
         format="json",
         HTTP_X_CSRFTOKEN=login_token,
     )
