@@ -32,6 +32,7 @@ from api.serializers import (
     ErrorResponseSerializer,
     ExpenseSerializer,
     GeneratedPlanSerializer,
+    GrassSpeciesSerializer,
     IrrigationEstimateSerializer,
     IrrigationNetworkDesignSerializer,
     IrrigationZoneSerializer,
