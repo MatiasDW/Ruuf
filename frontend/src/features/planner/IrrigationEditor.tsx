@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { IrrigationEditorState, WaterSourceType } from "./types";
 
 interface IrrigationEditorProps {
@@ -20,6 +20,13 @@ export function IrrigationEditor({
   onSave,
 }: IrrigationEditorProps) {
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!success) return;
+    const timer = setTimeout(() => setSuccess(false), 2000);
+    return () => clearTimeout(timer);
+  }, [success]);
 
   const handleSourceXChange = (value: string) => {
     const x = parseFloat(value) || 0;
@@ -56,6 +63,7 @@ export function IrrigationEditor({
       setError(null);
       onStateChange({ isSaving: true });
       await onSave();
+      setSuccess(true);
       onStateChange({ isSaving: false, isDirty: false });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error saving network design");
@@ -173,6 +181,7 @@ export function IrrigationEditor({
         </div>
 
         {error && <div className="error-message">{error}</div>}
+        {success && <div className="success-message">Red guardada ✓</div>}
 
         <button
           className="save-button"

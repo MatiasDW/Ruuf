@@ -44,8 +44,14 @@ export function InteractiveWaterSource({
   >(null);
 
   function getEventPoint(event: ReactPointerEvent<SVGElement>) {
-    const svg = event.currentTarget.ownerSVGElement as SVGSVGElement;
-    const matrix = svg?.getScreenCTM?.();
+    let target: Element | null = event.currentTarget;
+    while (target && target.tagName.toLowerCase() !== "svg") {
+      target = target.parentElement;
+    }
+    const svg = target as unknown as SVGSVGElement | null;
+    if (!svg) return null;
+
+    const matrix = svg.getScreenCTM?.();
     if (!matrix) return null;
 
     const point = svg.createSVGPoint?.();

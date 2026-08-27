@@ -13,7 +13,9 @@ import {
   validatePlacements,
   distanceToPolygon,
   polygonLabelAnchor,
+  polygonsIntersect,
   polygonSelfIntersects,
+  pointInPolygon,
 } from "./editor";
 import { inferCategory, shortLabel, typeColors, waterLabels } from "./model";
 import { InteractiveWaterSource } from "./InteractiveWaterSource";
@@ -169,10 +171,12 @@ export function GardenMap({
   );
   const houseHasConflict = validations.some((validation) => validation.issues.includes("house"));
   const irrigationZones = buildIrrigationZones(placements, lawnZones);
-  const source = {
-    x: Math.min(worldWidth, house.x + house.width),
-    y: Math.min(worldHeight, house.y + house.height * 0.72),
-  };
+  const source = irrigationState
+    ? { x: irrigationState.sourceX * UNITS_PER_METER, y: irrigationState.sourceY * UNITS_PER_METER }
+    : {
+        x: Math.min(worldWidth, house.x + house.width),
+        y: Math.min(worldHeight, house.y + house.height * 0.72),
+      };
   const handleSize = 34 / zoom;
   const houseLabelAnchor =
     form.house_polygon && form.house_polygon.length >= 3
@@ -786,20 +790,35 @@ export function GardenMap({
                           d={`M ${hubX} ${hubY} L ${lawnX} ${lawnY}`}
                         />
                         <g className="lawn-irrigation-coverage">
-                          <rect
-                            x={lawnZone.x * UNITS_PER_METER}
-                            y={lawnZone.y * UNITS_PER_METER}
-                            width={lawnZone.width * UNITS_PER_METER}
-                            height={lawnZone.height * UNITS_PER_METER}
-                            className="sprinkler-coverage"
-                            fill="rgba(90, 167, 187, 0.15)"
-                          />
-                          {renderSprinklerHeads(
-                            lawnZone.x * UNITS_PER_METER,
-                            lawnZone.y * UNITS_PER_METER,
-                            lawnZone.width * UNITS_PER_METER,
-                            lawnZone.height * UNITS_PER_METER,
-                            zoom,
+                          {lawnZone.polygon && lawnZone.polygon.length >= 3 ? (
+                            <>
+                              <polygon
+                                points={lawnZone.polygon
+                                  .map((p) => [p.x * UNITS_PER_METER, p.y * UNITS_PER_METER].join(","))
+                                  .join(" ")}
+                                className="sprinkler-coverage"
+                                fill="rgba(90, 167, 187, 0.15)"
+                              />
+                              {renderSprinklerHeadsInPolygon(lawnZone.polygon, zoom)}
+                            </>
+                          ) : (
+                            <>
+                              <rect
+                                x={lawnZone.x * UNITS_PER_METER}
+                                y={lawnZone.y * UNITS_PER_METER}
+                                width={lawnZone.width * UNITS_PER_METER}
+                                height={lawnZone.height * UNITS_PER_METER}
+                                className="sprinkler-coverage"
+                                fill="rgba(90, 167, 187, 0.15)"
+                              />
+                              {renderSprinklerHeads(
+                                lawnZone.x * UNITS_PER_METER,
+                                lawnZone.y * UNITS_PER_METER,
+                                lawnZone.width * UNITS_PER_METER,
+                                lawnZone.height * UNITS_PER_METER,
+                                zoom,
+                              )}
+                            </>
                           )}
                         </g>
                       </g>
@@ -989,8 +1008,21 @@ export function GardenMap({
         <g className="lawn-zones-layer">
           {lawnZones.map((zone) => {
             const selected = selectedLawnZoneId === zone.id;
+            const zonePoly = zone.polygon ?? [
+              { x: zone.x, y: zone.y },
+              { x: zone.x + zone.width, y: zone.y },
+              { x: zone.x + zone.width, y: zone.y + zone.height },
+              { x: zone.x, y: zone.y + zone.height },
+            ];
+            const housePoly = form.house_polygon ?? [
+              { x: house.x / UNITS_PER_METER, y: house.y / UNITS_PER_METER },
+              { x: (house.x + house.width) / UNITS_PER_METER, y: house.y / UNITS_PER_METER },
+              { x: (house.x + house.width) / UNITS_PER_METER, y: (house.y + house.height) / UNITS_PER_METER },
+              { x: house.x / UNITS_PER_METER, y: (house.y + house.height) / UNITS_PER_METER },
+            ];
+            const conflict = polygonsIntersect(zonePoly, housePoly);
             return (
-              <g key={zone.id} className={`lawn-zone ${selected ? "selected" : ""}`}>
+              <g key={zone.id} className={`lawn-zone ${selected ? "selected" : ""} ${conflict ? "has-conflict" : ""}`}>
                 <rect
                   x={zone.x * UNITS_PER_METER}
                   y={zone.y * UNITS_PER_METER}
@@ -1213,6 +1245,45 @@ function renderSprinklerHeads(
           className="sprinkler-head"
         />,
       );
+    }
+  }
+
+  return heads;
+}
+
+function renderSprinklerHeadsInPolygon(polygon: Point[], zoom: number): React.ReactNode[] {
+  let minX = Infinity,
+    maxX = -Infinity;
+  let minY = Infinity,
+    maxY = -Infinity;
+
+  for (const p of polygon) {
+    if (!p) continue;
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+  }
+
+  const spacing = 300; // ~3 metros en unidades
+  const headRadius = 8 / zoom;
+  const heads: React.ReactNode[] = [];
+
+  for (let sx = minX * UNITS_PER_METER + spacing / 2; sx < maxX * UNITS_PER_METER; sx += spacing) {
+    for (let sy = minY * UNITS_PER_METER + spacing / 2; sy < maxY * UNITS_PER_METER; sy += spacing) {
+      // Convertir a metros para pointInPolygon
+      const point: Point = { x: sx / UNITS_PER_METER, y: sy / UNITS_PER_METER };
+      if (pointInPolygon(point, polygon)) {
+        heads.push(
+          <circle
+            key={`head-${sx}-${sy}`}
+            cx={sx}
+            cy={sy}
+            r={headRadius}
+            className="sprinkler-head"
+          />,
+        );
+      }
     }
   }
 

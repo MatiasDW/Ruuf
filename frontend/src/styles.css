@@ -3170,6 +3170,16 @@ h3 {
   line-height: 1.4;
 }
 
+.success-message {
+  padding: 8px 10px;
+  background: rgba(76, 199, 115, 0.1);
+  border: 1px solid rgba(76, 199, 115, 0.3);
+  border-radius: 6px;
+  color: #3aa65e;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 /* Interactive water source in SVG */
 
 .interactive-water-source {

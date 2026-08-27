@@ -128,6 +128,42 @@ export function snapMeters(value: number, step = 0.25): number {
   return Math.round(value / step) * step;
 }
 
+export function polygonArea(polygon: Point[]): number {
+  if (polygon.length < 3) return 0;
+
+  let area = 0;
+  for (let i = 0; i < polygon.length; i++) {
+    const p1 = polygon[i];
+    const p2 = polygon[(i + 1) % polygon.length];
+    if (!p1 || !p2) continue;
+    area += p1.x * p2.y - p2.x * p1.y;
+  }
+
+  return Math.abs(area) / 2;
+}
+
+export function polygonBounds(polygon: Point[]): { x: number; y: number; width: number; height: number } {
+  let minX = Infinity,
+    maxX = -Infinity;
+  let minY = Infinity,
+    maxY = -Infinity;
+
+  for (const p of polygon) {
+    if (!p) continue;
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
 export function issueLabel(issue: PlacementIssueCode): string {
   const labels: Record<PlacementIssueCode, string> = {
     boundary: "El radio de seguridad sale del terreno.",
@@ -156,6 +192,17 @@ export function pointInPolygon(point: Point, polygon: Point[]): boolean {
   }
 
   return inside;
+}
+
+export function polygonsIntersect(poly1: Point[], poly2: Point[]): boolean {
+  if (poly1.length < 3 || poly2.length < 3) return false;
+  for (const vertex of poly1) {
+    if (pointInPolygon(vertex, poly2)) return true;
+  }
+  for (const vertex of poly2) {
+    if (pointInPolygon(vertex, poly1)) return true;
+  }
+  return false;
 }
 
 /**
