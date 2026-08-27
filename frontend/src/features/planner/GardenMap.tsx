@@ -27,6 +27,7 @@ import type {
   Placement,
   PlannerForm,
   Point,
+  SiteElement,
 } from "./types";
 
 export type GardenSelection =
@@ -45,6 +46,7 @@ interface GardenMapProps {
   lawnZones: LawnZone[];
   lawnZoneDrawMode: boolean;
   selectedLawnZoneId: string | null;
+  siteElements: SiteElement[];
   onSelectionChange: (selection: GardenSelection) => void;
   onEditorGestureStart: () => void;
   onEditorGestureCommit: () => void;
@@ -57,6 +59,7 @@ interface GardenMapProps {
   onSetLawnZoneDrawMode: (mode: boolean) => void;
   onSetSelectedLawnZoneId: (id: string | null) => void;
   onIrrigationStateChange?: (state: Partial<IrrigationEditorState>) => void;
+  onSetSiteElements: (elements: SiteElement[]) => void;
 }
 
 type ResizeCorner = "nw" | "ne" | "se" | "sw";

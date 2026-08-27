@@ -69,13 +69,14 @@ def estimate_irrigation(
     fixed_charge_clp: Decimal = Decimal(0),
     sewer_price_clp_per_m3: Decimal = Decimal(0),
     efficiency: Decimal = Decimal("0.85"),
+    lawn_zone_liters_per_week: Decimal = Decimal(0),
 ) -> IrrigationResult:
     if not Decimal("0.1") <= efficiency <= Decimal(1):
         raise ValueError("Irrigation efficiency must be between 0.1 and 1.0.")
 
     net_weekly_liters = sum(
         (Decimal(str(item.liters_per_week)) for item in placements), start=Decimal(0)
-    )
+    ) + lawn_zone_liters_per_week
     gross_weekly_liters = net_weekly_liters / efficiency
     monthly_m3 = gross_weekly_liters * WEEKS_PER_MONTH / Decimal(1000)
     low_m3 = monthly_m3 * Decimal("0.80")

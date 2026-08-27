@@ -17,6 +17,7 @@ import {
 import { SaveBar } from "../features/planner/SaveBar";
 import { IrrigationEditor } from "../features/planner/IrrigationEditor";
 import { HouseInspector } from "../features/planner/HouseInspector";
+import { ElementsPalette } from "../features/planner/ElementsPalette";
 import type {
   FilterMode,
   HouseFormFields,
@@ -27,6 +28,7 @@ import type {
   Placement,
   PlanResult,
   PlannerForm,
+  SiteElement,
   UnplacedItem,
   WaterNeed,
 } from "../features/planner/types";
@@ -43,12 +45,14 @@ interface PlanViewProps {
   lawnZones: LawnZone[];
   lawnZoneDrawMode: boolean;
   selectedLawnZoneId: string | null;
+  siteElements: SiteElement[];
   onSignIn: (email: string, password: string) => Promise<boolean>;
   onSave: () => Promise<void>;
   onReloadRevision: (discardLocalEdit: boolean) => Promise<void>;
   onSetLawnZones: (zones: LawnZone[]) => void;
   onSetLawnZoneDrawMode: (mode: boolean) => void;
   onSetSelectedLawnZoneId: (id: string | null) => void;
+  onSetSiteElements: (elements: SiteElement[]) => void;
   onEditorGestureStart: () => void;
   onEditorGestureCommit: () => void;
   onEditorGestureCancel: () => void;
@@ -72,9 +76,11 @@ export function PlanView({
   lawnZones,
   lawnZoneDrawMode,
   selectedLawnZoneId,
+  siteElements,
   onSetLawnZones,
   onSetLawnZoneDrawMode,
   onSetSelectedLawnZoneId,
+  onSetSiteElements,
   canUndo,
   canRedo,
   persistence,
@@ -282,6 +288,7 @@ export function PlanView({
                 lawnZones={lawnZones}
                 lawnZoneDrawMode={lawnZoneDrawMode}
                 selectedLawnZoneId={selectedLawnZoneId}
+                siteElements={siteElements}
                 onSelectionChange={setSelection}
                 onEditorGestureStart={onEditorGestureStart}
                 onEditorGestureCommit={onEditorGestureCommit}
@@ -293,6 +300,7 @@ export function PlanView({
                 onSetLawnZones={onSetLawnZones}
                 onSetLawnZoneDrawMode={onSetLawnZoneDrawMode}
                 onSetSelectedLawnZoneId={onSetSelectedLawnZoneId}
+                onSetSiteElements={onSetSiteElements}
                 onIrrigationStateChange={(partial) =>
                   onSetIrrigationEditor({ ...irrigationEditor, ...partial })
                 }
@@ -374,6 +382,19 @@ export function PlanView({
               }}
             />
           )}
+
+          <ElementsPalette onAddElement={(type) => {
+            const newId = `elem-${Date.now()}`;
+            const newElement: SiteElement = {
+              id: newId,
+              feature_type: type,
+              x: 5,
+              y: 5,
+              width: 2,
+              height: 2,
+            };
+            onSetSiteElements([...siteElements, newElement]);
+          }} />
 
           <section className="summary-card dark-card plan-overview-card">
             <div className="overview-card-heading">

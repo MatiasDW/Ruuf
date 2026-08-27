@@ -274,3 +274,14 @@ export interface LawnZone {
   water_need: WaterNeed;
   liters_per_m2_week: number;
 }
+
+export type SiteElementType = "pool" | "quincho" | "terrace" | "path";
+
+export interface SiteElement {
+  id: string;
+  feature_type: SiteElementType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}

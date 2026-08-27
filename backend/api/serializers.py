@@ -641,6 +641,21 @@ class ObstacleInputSerializer(StrictSerializer):
     width = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.01"))
     height = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.01"))
     label = serializers.CharField(max_length=120, default="Obstacle")
+    feature_type = serializers.ChoiceField(
+        choices=["pool", "quincho", "terrace", "path", "house", "other"],
+        required=False,
+        allow_null=True,
+    )
+
+
+class LawnZoneInputSerializer(StrictSerializer):
+    x = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0"))
+    y = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0"))
+    width = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.01"))
+    height = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.01"))
+    liters_per_m2_week = serializers.DecimalField(
+        max_digits=10, decimal_places=3, min_value=Decimal("0.01")
+    )
 
 
 class PlanInputSerializer(StrictSerializer):
@@ -648,6 +663,7 @@ class PlanInputSerializer(StrictSerializer):
     irrigation = IrrigationPlanInputSerializer(required=False, default=dict)
     requests = PlantRequestInputSerializer(many=True, min_length=1, max_length=500)
     obstacles = ObstacleInputSerializer(many=True, required=False, default=list, max_length=100)
+    lawn_zones = LawnZoneInputSerializer(many=True, required=False, default=list, max_length=100)
     layout_id = serializers.UUIDField(required=False)
     layout_name = serializers.CharField(max_length=180, required=False)
     objective = serializers.CharField(max_length=120, required=False)

@@ -41,6 +41,7 @@ import type {
   PlantRequest,
   SaveStatus,
   SessionUser,
+  SiteElement,
   SystemHealth,
   UnplacedItem,
 } from "./features/planner/types";
@@ -82,6 +83,7 @@ function PlannerApplication() {
   const [lawnZones, setLawnZones] = useState<LawnZone[]>([]);
   const [lawnZoneDrawMode, setLawnZoneDrawMode] = useState(false);
   const [selectedLawnZoneId, setSelectedLawnZoneId] = useState<string | null>(null);
+  const [siteElements, setSiteElements] = useState<SiteElement[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -581,6 +583,8 @@ function PlannerApplication() {
               onSetLawnZoneDrawMode={setLawnZoneDrawMode}
               selectedLawnZoneId={selectedLawnZoneId}
               onSetSelectedLawnZoneId={setSelectedLawnZoneId}
+              siteElements={siteElements}
+              onSetSiteElements={setSiteElements}
               onEditorGestureStart={startEditorGesture}
               onEditorGestureCommit={commitEditorGesture}
               onEditorGestureCancel={cancelEditorGesture}
