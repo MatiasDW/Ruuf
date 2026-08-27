@@ -151,7 +151,13 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"anon": "120/hour", "user": "1200/hour", "login": "10/minute"},
+    # En desarrollo el editor y los agentes golpean la API constantemente; el límite
+    # productivo de 120/hora dejaba al planner en 429 a los pocos minutos.
+    "DEFAULT_THROTTLE_RATES": (
+        {"anon": "4000/hour", "user": "8000/hour", "login": "30/minute"}
+        if DEBUG
+        else {"anon": "120/hour", "user": "1200/hour", "login": "10/minute"}
+    ),
     "PAGE_SIZE": 50,
 }
 

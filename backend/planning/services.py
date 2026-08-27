@@ -14,7 +14,7 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException
 
 from audit.services import record_audit_event
-from catalog.models import PlantCultivar
+from catalog.models import GrassSpecies, PlantCultivar
 from domain.irrigation import IrrigationResult, estimate_irrigation
 from domain.planning import (
     ENGINE_VERSION,
@@ -23,6 +23,7 @@ from domain.planning import (
     PlanResult,
     PlantRequest,
     PlantSpec,
+    PolygonObstacle,
     RectangleObstacle,
     plan_landscape,
     validate_layout,
@@ -77,12 +78,15 @@ def payload_obstacles(payload: dict[str, Any]) -> tuple[RectangleObstacle, ...]:
             width=float(item["width"]),
             height=float(item["height"]),
             label=str(item.get("label", "Obstacle")),
+            feature_type=item.get("feature_type"),
         )
         for item in payload.get("obstacles", [])
     )
 
 
 def run_plan(payload: dict[str, Any]) -> tuple[PlanResult, IrrigationResult]:
+    from domain.geometry import polygon_area
+
     site = payload["site"]
     result = plan_landscape(
         yard_width=float(site["yard_width"]),
@@ -97,12 +101,33 @@ def run_plan(payload: dict[str, Any]) -> tuple[PlanResult, IrrigationResult]:
         obstacles=payload_obstacles(payload),
     )
     irrigation = payload.get("irrigation", {})
+
+    lawn_zones_water = Decimal(0)
+    for zone in payload.get("lawn_zones", []):
+        if zone.get("polygon"):
+            points = [{"x": p["x"], "y": p["y"]} for p in zone["polygon"]]
+            area_m2 = Decimal(str(polygon_area(points)))
+        else:
+            area_m2 = Decimal(str(zone["width"])) * Decimal(str(zone["height"]))
+
+        if zone.get("grass_species_slug"):
+            grass_species = GrassSpecies.objects.get(slug=zone["grass_species_slug"])
+            liters_per_m2 = grass_species.liters_per_m2_week
+        else:
+            liters_per_m2_value = zone.get("liters_per_m2_week")
+            if liters_per_m2_value is None:
+                continue
+            liters_per_m2 = Decimal(str(liters_per_m2_value))
+
+        lawn_zones_water += area_m2 * liters_per_m2
+
     irrigation_result = estimate_irrigation(
         result.placements,
         variable_water_price_clp_per_m3=Decimal(str(irrigation.get("water_price_clp_per_m3", 0))),
         fixed_charge_clp=Decimal(str(irrigation.get("fixed_charge_clp", 0))),
         sewer_price_clp_per_m3=Decimal(str(irrigation.get("sewer_price_clp_per_m3", 0))),
         efficiency=Decimal(str(irrigation.get("efficiency", "0.85"))),
+        lawn_zone_liters_per_week=lawn_zones_water,
     )
     return result, irrigation_result
 
@@ -177,16 +202,24 @@ def _next_site_version(project: Project, user: User, payload: dict[str, Any]) ->
         preferred_style=site_data.get("style", "mediterranean"),
         author=user,
     )
-    SiteFeature.objects.bulk_create(
-        [
+    features_to_create = []
+
+    for item in payload.get("obstacles", []):
+        feature_type_str = item.get("feature_type")
+        if feature_type_str and hasattr(SiteFeature.FeatureType, feature_type_str.upper()):
+            feature_type = getattr(SiteFeature.FeatureType, feature_type_str.upper())
+        elif str(item.get("label", "")).lower() == "house":
+            feature_type = SiteFeature.FeatureType.HOUSE
+        else:
+            feature_type = SiteFeature.FeatureType.OTHER
+
+        features_to_create.append(
             SiteFeature(
                 site_version=site_version,
-                feature_type=SiteFeature.FeatureType.HOUSE
-                if str(item.get("label", "")).lower() == "house"
-                else SiteFeature.FeatureType.OTHER,
+                feature_type=feature_type,
                 label=item.get("label", "Obstacle"),
                 geometry={
-                    "type": "rectangle",
+                    "type": "rect",
                     "x": float(item["x"]),
                     "y": float(item["y"]),
                     "width": float(item["width"]),
@@ -194,9 +227,28 @@ def _next_site_version(project: Project, user: User, payload: dict[str, Any]) ->
                 },
                 plantable=False,
             )
-            for item in payload.get("obstacles", [])
-        ]
-    )
+        )
+
+    for item in payload.get("lawn_zones", []):
+        features_to_create.append(
+            SiteFeature(
+                site_version=site_version,
+                feature_type=SiteFeature.FeatureType.LAWN_ZONE,
+                label=item.get("label", "Lawn Zone"),
+                geometry={
+                    "type": "rect",
+                    "x": float(item["x"]),
+                    "y": float(item["y"]),
+                    "width": float(item["width"]),
+                    "height": float(item["height"]),
+                },
+                water_need=item.get("water_need", "medium"),
+                liters_per_m2_week=Decimal(str(item.get("liters_per_m2_week", "2.5"))),
+                plantable=True,
+            )
+        )
+
+    SiteFeature.objects.bulk_create(features_to_create)
     return site_version
 
 
@@ -305,21 +357,44 @@ def persist_generated_plan(
     return version, response
 
 
-def _obstacles_for_version(site_version: SiteVersion) -> tuple[RectangleObstacle, ...]:
-    obstacles: list[RectangleObstacle] = []
+def _obstacles_for_version(
+    site_version: SiteVersion,
+) -> tuple[RectangleObstacle | PolygonObstacle, ...]:
+    obstacles: list[RectangleObstacle | PolygonObstacle] = []
     for feature in site_version.features.all():
-        geometry = feature.geometry
-        if geometry.get("type") != "rectangle":
+        if feature.plantable:
             continue
-        obstacles.append(
-            RectangleObstacle(
-                x=float(geometry["x"]),
-                y=float(geometry["y"]),
-                width=float(geometry["width"]),
-                height=float(geometry["height"]),
-                label=feature.label,
+        geometry = feature.geometry
+        # El flujo legado guarda "rectangle"; la API de BE-106 guarda "rect".
+        if geometry.get("type") in ("rectangle", "rect"):
+            obstacles.append(
+                RectangleObstacle(
+                    x=float(geometry["x"]),
+                    y=float(geometry["y"]),
+                    width=float(geometry["width"]),
+                    height=float(geometry["height"]),
+                    label=feature.label,
+                    feature_type=feature.feature_type,
+                )
             )
-        )
+        elif geometry.get("type") == "polygon":
+            points_data = geometry.get("points", [])
+            # validate_geometry (BE-106) guarda puntos como {"x": .., "y": ..};
+            # se acepta también [x, y] por datos pre-validación.
+            points = tuple(
+                (float(p["x"]), float(p["y"]))
+                if isinstance(p, dict)
+                else (float(p[0]), float(p[1]))
+                for p in points_data
+            )
+            if len(points) >= 3:
+                obstacles.append(
+                    PolygonObstacle(
+                        points=points,
+                        label=feature.label,
+                        feature_type=feature.feature_type,
+                    )
+                )
     return tuple(obstacles)
 
 
@@ -431,6 +506,18 @@ def revise_layout(
         ]
     )
     ValidationIssue.objects.bulk_create([_issue_model(version, issue) for issue in issues])
+
+    lawn_zones_water_persistent = Decimal(0)
+    for feature in version.site_version.features.filter(feature_type="lawn_zone"):
+        if not feature.liters_per_m2_week:
+            continue
+        geometry = feature.geometry or {}
+        width = Decimal(str(geometry.get("width", 0)))
+        height = Decimal(str(geometry.get("height", 0)))
+        area_m2 = width * height
+        liters_per_m2 = feature.liters_per_m2_week
+        lawn_zones_water_persistent += area_m2 * liters_per_m2
+
     irrigation_payload = parent.input_snapshot.get("irrigation", {})
     irrigation_result = estimate_irrigation(
         placements,
@@ -440,6 +527,7 @@ def revise_layout(
         fixed_charge_clp=Decimal(str(irrigation_payload.get("fixed_charge_clp", 0))),
         sewer_price_clp_per_m3=Decimal(str(irrigation_payload.get("sewer_price_clp_per_m3", 0))),
         efficiency=Decimal(str(irrigation_payload.get("efficiency", "0.85"))),
+        lawn_zone_liters_per_week=lawn_zones_water_persistent,
     )
     _save_irrigation_estimate(version, irrigation_result)
     locked_layout.current_revision = revision

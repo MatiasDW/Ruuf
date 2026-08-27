@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import logging
+from uuid import UUID
 
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import AnonymousUser
 from django.db import transaction
+from django.db.models import QuerySet
 from django.middleware.csrf import get_token
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
@@ -25,8 +29,12 @@ from api.serializers import (
     ClientSerializer,
     CSRFTokenSerializer,
     EmptySerializer,
+    ErrorResponseSerializer,
     ExpenseSerializer,
+    GeneratedPlanSerializer,
+    GrassSpeciesSerializer,
     IrrigationEstimateSerializer,
+    IrrigationNetworkDesignSerializer,
     IrrigationZoneSerializer,
     LayoutSerializer,
     LayoutVersionSerializer,
@@ -55,7 +63,7 @@ from api.serializers import (
 )
 from audit.models import AuditEvent
 from audit.services import record_audit_event
-from catalog.models import PlantCultivar, PlantRuleVersion, PlantSpecies
+from catalog.models import GrassSpecies, PlantCultivar, PlantRuleVersion, PlantSpecies
 from finance.models import (
     Expense,
     PriceBook,
@@ -66,8 +74,14 @@ from finance.models import (
 )
 from finance.services import project_finance_summary
 from identity.access import ADMIN_ROLES, DESIGN_ROLES, FINANCE_ROLES
-from identity.models import Client, Membership, Organization
-from irrigation.models import IrrigationEstimate, IrrigationZone, TariffVersion, WaterProvider
+from identity.models import Client, Membership, Organization, User
+from irrigation.models import (
+    IrrigationEstimate,
+    IrrigationNetworkDesign,
+    IrrigationZone,
+    TariffVersion,
+    WaterProvider,
+)
 from planning.models import Layout, LayoutVersion, SolverRun, ValidationIssue
 from planning.services import persist_generated_plan, revise_layout
 from planning.tasks import run_solver_task
@@ -235,6 +249,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         require_role(self.request.user, serializer.instance.organization_id, DESIGN_ROLES)
         serializer.save()
 
+    @extend_schema(
+        request=PlanInputSerializer,
+        responses={201: GeneratedPlanSerializer, 400: ErrorResponseSerializer},
+    )
     @action(detail=True, methods=("post",), url_path="generate-plan")
     def generate_plan(self, request: Request, pk: str | None = None) -> Response:
         project = self.get_object()
@@ -332,6 +350,34 @@ class PlantRuleVersionViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
 
+class GrassSpeciesViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = GrassSpecies.objects.all()
+    serializer_class = GrassSpeciesSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class GrassSpeciesPublicViewSet(viewsets.ReadOnlyModelViewSet):
+    """Superficie compat sin auth; sirve el catálogo completo igual que /api/plants.
+
+    El campo provenance viaja en el payload para que el cliente distinga datos
+    prototype_unverified de datos verificados.
+    """
+
+    queryset = GrassSpecies.objects.all()
+    serializer_class = GrassSpeciesSerializer
+    permission_classes = [AllowAny]
+
+
+def layout_version_queryset(user: User | AnonymousUser) -> QuerySet[LayoutVersion]:
+    return (
+        LayoutVersion.objects.filter(
+            layout__project__organization_id__in=organization_ids_for(user)
+        )
+        .select_related("layout__project__organization", "site_version", "author")
+        .prefetch_related("items__cultivar", "validation_issues", "irrigation_estimates")
+    )
+
+
 class LayoutViewSet(viewsets.ModelViewSet):
     serializer_class = LayoutSerializer
     permission_classes = [IsAuthenticated, OrganizationRolePermission]
@@ -351,6 +397,14 @@ class LayoutViewSet(viewsets.ModelViewSet):
         require_role(self.request.user, serializer.instance.project.organization_id, DESIGN_ROLES)
         serializer.save()
 
+    @extend_schema(
+        request=ReviseLayoutSerializer,
+        responses={
+            201: LayoutVersionSerializer,
+            400: ErrorResponseSerializer,
+            409: ErrorResponseSerializer,
+        },
+    )
     @action(detail=True, methods=("post",), url_path="revisions")
     def create_revision(self, request: Request, pk: str | None = None) -> Response:
         layout = self.get_object()
@@ -366,19 +420,101 @@ class LayoutViewSet(viewsets.ModelViewSet):
         )
         return Response(LayoutVersionSerializer(version).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(responses={200: LayoutVersionSerializer(many=True)})
+    @create_revision.mapping.get
+    def list_revisions(self, request: Request, pk: str | None = None) -> Response:
+        """Revisions of a single layout, newest first, so a client can reopen the latest."""
+        layout = self.get_object()
+        versions = layout_version_queryset(request.user).filter(layout=layout).order_by("-revision")
+        page = self.paginate_queryset(versions)
+        if page is not None:
+            return self.get_paginated_response(LayoutVersionSerializer(page, many=True).data)
+        return Response(LayoutVersionSerializer(versions, many=True).data)
 
+    @extend_schema(
+        responses={200: IrrigationNetworkDesignSerializer, 201: IrrigationNetworkDesignSerializer}
+    )
+    @action(detail=True, methods=("get", "post", "put"), url_path="irrigation-network-design")
+    def irrigation_network_design(self, request: Request, pk: str | None = None) -> Response:
+        """Get or update irrigation network design for a layout."""
+        layout = self.get_object()
+        require_role(request.user, layout.project.organization_id, DESIGN_ROLES)
+
+        if request.method == "GET":
+            design = IrrigationNetworkDesign.objects.filter(layout=layout).first()
+            if not design:
+                return Response({"detail": "No irrigation network design found."}, status=404)
+            return Response(IrrigationNetworkDesignSerializer(design).data)
+
+        serializer = IrrigationNetworkDesignSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+
+        site_version = (
+            layout.versions.filter(revision=layout.current_revision)
+            .select_related("site_version")
+            .first()
+        )
+        if not site_version or not site_version.site_version:
+            return Response(
+                {"detail": "Layout has no site version."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        yard_width = float(site_version.site_version.width_m)
+        yard_height = float(site_version.site_version.height_m)
+
+        x = float(validated.get("water_source_x", 0))
+        y = float(validated.get("water_source_y", 0))
+        if not (0 <= x <= yard_width and 0 <= y <= yard_height):
+            msg = f"Water source must be inside yard bounds (0-{yard_width}m x 0-{yard_height}m)."
+            return Response(
+                {"detail": msg},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        design, created = IrrigationNetworkDesign.objects.update_or_create(
+            layout=layout,
+            defaults={
+                "water_source_x": validated.get("water_source_x", 0),
+                "water_source_y": validated.get("water_source_y", 0),
+                "water_source_type": validated.get("water_source_type", "potable"),
+                "main_pipe_route": validated.get("main_pipe_route", []),
+                "num_main_pipes": validated.get("num_main_pipes", 1),
+            },
+        )
+        if "zones" in validated:
+            design.zones.set(validated["zones"])
+
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(IrrigationNetworkDesignSerializer(design).data, status=status_code)
+
+
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="layout",
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description="Return only the versions of this layout.",
+            )
+        ]
+    )
+)
 class LayoutVersionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = LayoutVersionSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):  # type: ignore[no-untyped-def]
-        return (
-            LayoutVersion.objects.filter(
-                layout__project__organization_id__in=organization_ids_for(self.request.user)
-            )
-            .select_related("layout__project__organization", "site_version", "author")
-            .prefetch_related("items__cultivar", "validation_issues", "irrigation_estimates")
-        )
+        queryset = layout_version_queryset(self.request.user)
+        layout_id = self.request.query_params.get("layout")
+        if layout_id:
+            try:
+                layout_uuid = UUID(str(layout_id))
+            except ValueError:
+                raise ValidationError({"layout": "Must be a valid UUID."}) from None
+            queryset = queryset.filter(layout_id=layout_uuid)
+        return queryset
 
     @action(detail=True, methods=("post",))
     def optimize(self, request: Request, pk: str | None = None) -> Response:

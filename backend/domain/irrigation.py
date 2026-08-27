@@ -3,7 +3,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from projects.models import SiteVersion
 
 WEEKS_PER_MONTH = Decimal("4.345")
 
@@ -35,6 +38,30 @@ def volume(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
 
 
+def calculate_lawn_zone_water(site_version: SiteVersion) -> Decimal:
+    """Calculate total weekly water consumption for all lawn zones in a site version.
+
+    Lawn zones are rectangles with {x, y, width, height} geometry.
+    Weekly liters = area_m2 x liters_per_m2_week.
+    """
+    total_liters = Decimal(0)
+
+    for feature in site_version.features.filter(feature_type="lawn_zone"):
+        if not feature.liters_per_m2_week:
+            continue
+
+        geometry = feature.geometry or {}
+        width = Decimal(str(geometry.get("width", 0)))
+        height = Decimal(str(geometry.get("height", 0)))
+        area_m2 = width * height
+
+        liters_per_m2 = feature.liters_per_m2_week
+        weekly_liters = area_m2 * liters_per_m2
+        total_liters += weekly_liters
+
+    return total_liters
+
+
 def estimate_irrigation(
     placements: Sequence[WaterPlacement],
     *,
@@ -42,13 +69,14 @@ def estimate_irrigation(
     fixed_charge_clp: Decimal = Decimal(0),
     sewer_price_clp_per_m3: Decimal = Decimal(0),
     efficiency: Decimal = Decimal("0.85"),
+    lawn_zone_liters_per_week: Decimal = Decimal(0),
 ) -> IrrigationResult:
     if not Decimal("0.1") <= efficiency <= Decimal(1):
         raise ValueError("Irrigation efficiency must be between 0.1 and 1.0.")
 
     net_weekly_liters = sum(
         (Decimal(str(item.liters_per_week)) for item in placements), start=Decimal(0)
-    )
+    ) + lawn_zone_liters_per_week
     gross_weekly_liters = net_weekly_liters / efficiency
     monthly_m3 = gross_weekly_liters * WEEKS_PER_MONTH / Decimal(1000)
     low_m3 = monthly_m3 * Decimal("0.80")

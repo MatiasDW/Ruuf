@@ -6,6 +6,28 @@ from dataclasses import dataclass
 
 ENGINE_VERSION = "grid-v2"
 
+FEATURE_CLEARANCE_M = {
+    "pool": 1.5,
+    "quincho": 1.0,
+    "terrace": 0.5,
+    "path": 0.0,
+}
+
+
+def get_feature_clearance(feature_type: str) -> float:
+    """Get clearance distance (meters) for a non-plantable feature type.
+
+    Clearance values define the minimum distance plants must maintain from
+    each feature type:
+    - pool: 1.5m (high water activity, splash hazard)
+    - quincho: 1.0m (occasional gathering/fire)
+    - terrace: 0.5m (foot traffic, minor maintenance)
+    - path: 0.0m (path itself creates no plantable exclusion)
+
+    Returns 0.0 for unknown types (feature is not an obstacle).
+    """
+    return FEATURE_CLEARANCE_M.get(feature_type, 0.0)
+
 
 @dataclass(frozen=True)
 class PlantSpec:
@@ -34,6 +56,14 @@ class RectangleObstacle:
     width: float
     height: float
     label: str = "Obstacle"
+    feature_type: str | None = None
+
+
+@dataclass(frozen=True)
+class PolygonObstacle:
+    points: tuple[tuple[float, float], ...]
+    label: str = "Obstacle"
+    feature_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -89,7 +119,63 @@ def _inside_yard(x: float, y: float, radius: float, yard_width: float, yard_heig
 def _distance_to_rectangle(x: float, y: float, obstacle: RectangleObstacle) -> float:
     closest_x = max(obstacle.x, min(x, obstacle.x + obstacle.width))
     closest_y = max(obstacle.y, min(y, obstacle.y + obstacle.height))
-    return _distance(x, y, closest_x, closest_y)
+    euclidean = _distance(x, y, closest_x, closest_y)
+    if hasattr(obstacle, "feature_type") and obstacle.feature_type:
+        return euclidean - get_feature_clearance(obstacle.feature_type)
+    return euclidean
+
+
+def _point_in_polygon(x: float, y: float, polygon: PolygonObstacle) -> bool:
+    """Ray casting algorithm for point-in-polygon test."""
+    inside = False
+    points = polygon.points
+    n = len(points)
+    j = n - 1
+    for i in range(n):
+        xi, yi = points[i]
+        xj, yj = points[j]
+        if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
+def _distance_to_polygon(x: float, y: float, obstacle: PolygonObstacle) -> float:
+    """Calculate signed distance from point to polygon boundary.
+
+    Negative/zero = inside polygon, positive = outside.
+    """
+    points = obstacle.points
+    if len(points) < 2:
+        return math.inf
+
+    min_distance = math.inf
+    n = len(points)
+
+    for i in range(n):
+        x1, y1 = points[i]
+        x2, y2 = points[(i + 1) % n]
+
+        dx = x2 - x1
+        dy = y2 - y1
+        length_sq = dx * dx + dy * dy
+
+        if length_sq == 0:
+            dist = _distance(x, y, x1, y1)
+        else:
+            t = max(0, min(1, ((x - x1) * dx + (y - y1) * dy) / length_sq))
+            closest_x = x1 + t * dx
+            closest_y = y1 + t * dy
+            dist = _distance(x, y, closest_x, closest_y)
+
+        min_distance = min(min_distance, dist)
+
+    is_inside = _point_in_polygon(x, y, obstacle)
+    euclidean = min_distance if not is_inside else -min_distance
+
+    if obstacle.feature_type:
+        return euclidean - get_feature_clearance(obstacle.feature_type)
+    return euclidean
 
 
 def validate_placement(
@@ -97,7 +183,7 @@ def validate_placement(
     *,
     yard_width: float,
     yard_height: float,
-    obstacles: Sequence[RectangleObstacle],
+    obstacles: Sequence[RectangleObstacle | PolygonObstacle],
     other_placements: Sequence[Placement],
 ) -> tuple[ConstraintIssue, ...]:
     issues: list[ConstraintIssue] = []
@@ -123,7 +209,10 @@ def validate_placement(
         )
 
     for obstacle in obstacles:
-        actual = _distance_to_rectangle(placement.x, placement.y, obstacle)
+        if isinstance(obstacle, PolygonObstacle):
+            actual = _distance_to_polygon(placement.x, placement.y, obstacle)
+        else:
+            actual = _distance_to_rectangle(placement.x, placement.y, obstacle)
         required = placement.structure_clearance_m
         if actual < required:
             issues.append(
@@ -176,7 +265,7 @@ def validate_layout(
     *,
     yard_width: float,
     yard_height: float,
-    obstacles: Sequence[RectangleObstacle],
+    obstacles: Sequence[RectangleObstacle | PolygonObstacle],
 ) -> tuple[ConstraintIssue, ...]:
     issues: list[ConstraintIssue] = []
     for index, placement in enumerate(placements):
@@ -231,7 +320,7 @@ def plan_landscape(
     plant_catalog: Sequence[PlantSpec],
     sunlight: str,
     preferred_style: str,
-    obstacles: Sequence[RectangleObstacle] = (),
+    obstacles: Sequence[RectangleObstacle | PolygonObstacle] = (),
 ) -> PlanResult:
     placements: list[Placement] = []
     unplaced: list[UnplacedItem] = []

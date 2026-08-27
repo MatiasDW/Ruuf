@@ -1,7 +1,5 @@
 import type {
-  FilterMode,
   LandscapeStyle,
-  LegendItem,
   PlanPayload,
   PlanResult,
   PlannerForm,
@@ -21,6 +19,7 @@ export const defaultForm: PlannerForm = {
   obstacle_height: 5,
   obstacle_x: 4,
   obstacle_y: 4,
+  house_shape: "rectangle",
   water_price_clp_per_m3: 1200,
   fixed_charge_clp: 3000,
 };
@@ -72,7 +71,17 @@ export function buildInitialRequests(plants: Plant[]): PlantRequest[] {
   }));
 }
 
-export function buildPlanPayload(form: PlannerForm, requests: PlantRequest[]): PlanPayload {
+export function buildPlanPayload(
+  form: PlannerForm,
+  requests: PlantRequest[],
+  siteElements: Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    feature_type: string;
+  }> = [],
+): PlanPayload {
   return {
     site: {
       yard_width: form.yard_width,
@@ -92,6 +101,13 @@ export function buildPlanPayload(form: PlannerForm, requests: PlantRequest[]): P
         height: form.obstacle_height,
         label: "House",
       },
+      ...siteElements.map((el) => ({
+        x: el.x,
+        y: el.y,
+        width: el.width,
+        height: el.height,
+        label: el.feature_type,
+      })),
     ],
     requests: requests
       .filter((item) => item.quantity > 0)
@@ -108,24 +124,6 @@ export function formatCurrency(value: number): string {
     currency: "CLP",
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-export function buildLegendItems(filterMode: FilterMode): LegendItem[] {
-  if (filterMode === "water") {
-    return [
-      { label: "Riego bajo", color: waterColors.low },
-      { label: "Riego medio", color: waterColors.medium },
-      { label: "Riego alto", color: waterColors.high },
-      { label: "Superficie no plantable", swatchClass: "legend-swatch-outline" },
-    ];
-  }
-
-  return [
-    { label: "Árboles de copa", color: typeColors.tree },
-    { label: "Arbustos y setos", color: typeColors.shrub },
-    { label: "Flores y perennes", color: typeColors.flower },
-    { label: "Superficie no plantable", swatchClass: "legend-swatch-outline" },
-  ];
 }
 
 export function highestWaterNeed(result: PlanResult | null): WaterNeed {

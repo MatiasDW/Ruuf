@@ -47,6 +47,11 @@ class PlantCultivar(UUIDTimeStampedModel):
         MEDIUM = "medium", "Medium"
         HIGH = "high", "High"
 
+    class FoliageType(models.TextChoices):
+        EVERGREEN = "evergreen", "Evergreen"
+        DECIDUOUS = "deciduous", "Deciduous (loses leaves in winter)"
+        SEMI_DECIDUOUS = "semi_deciduous", "Semi-deciduous (partial loss)"
+
     species = models.ForeignKey(PlantSpecies, on_delete=models.PROTECT, related_name="cultivars")
     slug = models.SlugField(max_length=120, unique=True)
     cultivar_name = models.CharField(max_length=160, blank=True)
@@ -77,6 +82,13 @@ class PlantCultivar(UUIDTimeStampedModel):
     )
     style_tags = models.JSONField(default=list)
     color = models.CharField(max_length=7, default="#6f8f61")
+    image_url = models.URLField(blank=True, help_text="URL to plant image (optional)")
+    foliage_type = models.CharField(
+        max_length=20, choices=FoliageType.choices, default=FoliageType.EVERGREEN
+    )
+    color_winter = models.CharField(
+        max_length=7, blank=True, help_text="Stem/branch color in winter (for deciduous plants)"
+    )
     provenance = models.CharField(max_length=40, default="prototype_unverified")
     is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
@@ -122,3 +134,43 @@ class PlantRuleVersion(UUIDTimeStampedModel):
             )
         ]
         ordering = ("cultivar", "-version")
+
+
+class GrassSpecies(UUIDTimeStampedModel):
+    class Sunlight(models.TextChoices):
+        FULL_SUN = "full_sun", "Full sun (6+ hours)"
+        PARTIAL_SHADE = "partial_shade", "Partial shade (3-6 hours)"
+        SHADE = "shade", "Shade (<3 hours)"
+
+    class FootTrafficResistance(models.TextChoices):
+        LOW = "low", "Low (not suitable for foot traffic)"
+        MEDIUM = "medium", "Medium (suitable for light use)"
+        HIGH = "high", "High (suitable for heavy use)"
+
+    slug = models.SlugField(max_length=120, unique=True)
+    common_name = models.CharField(max_length=160)
+    scientific_name = models.CharField(max_length=180, blank=True)
+    liters_per_m2_week = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        validators=[MinValueValidator(Decimal("0"))],
+        help_text="Weekly water consumption per m² (referential, non-production)",
+    )
+    sunlight = models.CharField(max_length=20, choices=Sunlight.choices)
+    foot_traffic_resistance = models.CharField(max_length=20, choices=FootTrafficResistance.choices)
+    seasonality = models.CharField(
+        max_length=80,
+        blank=True,
+        help_text="Seasonal behavior (e.g., 'winter dormant', 'year-round green')",
+    )
+    image_url = models.URLField(blank=True, help_text="URL to grass species image (optional)")
+    source = models.CharField(max_length=180, help_text="Source of data (URL, publication, etc.)")
+    valid_from = models.DateField(help_text="Date when this data became valid")
+    provenance = models.CharField(max_length=40, default="prototype_unverified")
+    is_verified = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ("common_name",)
+
+    def __str__(self) -> str:
+        return self.common_name

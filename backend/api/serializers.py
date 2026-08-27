@@ -7,7 +7,8 @@ from django.db import transaction
 from rest_framework import serializers
 
 from audit.models import AuditEvent
-from catalog.models import PlantCultivar, PlantRuleVersion, PlantSpecies
+from catalog.models import GrassSpecies, PlantCultivar, PlantRuleVersion, PlantSpecies
+from domain.geometry import polygon_area, polygon_self_intersects, validate_geometry
 from finance.models import (
     Expense,
     PriceBook,
@@ -17,7 +18,13 @@ from finance.models import (
     QuoteVersion,
 )
 from identity.models import Client, Membership, Organization, User
-from irrigation.models import IrrigationEstimate, IrrigationZone, TariffVersion, WaterProvider
+from irrigation.models import (
+    IrrigationEstimate,
+    IrrigationNetworkDesign,
+    IrrigationZone,
+    TariffVersion,
+    WaterProvider,
+)
 from planning.models import Layout, LayoutItem, LayoutVersion, SolverRun, ValidationIssue
 from projects.models import Project, Site, SiteFeature, SiteVersion
 
@@ -54,6 +61,14 @@ class EmptySerializer(serializers.Serializer):
 
 
 class CompatibilityPlantSerializer(serializers.Serializer):
+    EMOJI_BY_CATEGORY = {
+        "tree": "🌳",
+        "shrub": "🌿",
+        "flower": "🌸",
+        "groundcover": "🌿",
+        "grass": "🌱",
+    }
+
     id = serializers.SlugField()
     name = serializers.CharField()
     category = serializers.CharField()
@@ -64,6 +79,12 @@ class CompatibilityPlantSerializer(serializers.Serializer):
     liters_per_week = serializers.FloatField()
     style_tags = serializers.ListField(child=serializers.CharField())
     color = serializers.CharField()
+    image_url = serializers.URLField(required=False, allow_blank=True)
+    emoji = serializers.SerializerMethodField()
+
+    def get_emoji(self, obj: Any) -> str:
+        category = obj.get("category", "")
+        return self.EMOJI_BY_CATEGORY.get(category, "🌿")
 
 
 class CompatibilityPlanResponseSerializer(serializers.Serializer):
@@ -72,6 +93,25 @@ class CompatibilityPlanResponseSerializer(serializers.Serializer):
     unplaced = serializers.ListField(child=serializers.DictField())
     issues = serializers.ListField(child=serializers.DictField())
     irrigation = serializers.DictField()
+
+
+class ErrorDetailSerializer(serializers.Serializer):
+    code = serializers.CharField()
+    message = serializers.CharField()
+    details = serializers.JSONField(required=False)
+    request_id = serializers.CharField(required=False, allow_null=True)
+
+
+class ErrorResponseSerializer(serializers.Serializer):
+    error = ErrorDetailSerializer()
+
+
+class GeneratedPlanSerializer(CompatibilityPlanResponseSerializer):
+    """Response of ``POST /projects/{id}/generate-plan/``: a plan plus its persisted revision."""
+
+    layout_id = serializers.UUIDField()
+    layout_version_id = serializers.UUIDField()
+    revision = serializers.IntegerField()
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -214,6 +254,30 @@ class SiteFeatureSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ("id", "created_at", "updated_at")
 
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Validate geometry against site boundaries.
+
+        Geometry can be:
+        - Rectangle: {type: "rect", x, y, width, height}
+        - Polygon: {type: "polygon", points: [{x, y}, ...]}
+
+        All points must be within site boundaries; polygons must have ≥3 points,
+        non-zero area, and no self-intersections.
+        """
+        geometry = data.get("geometry")
+        site_version = data.get("site_version")
+
+        if not geometry or not site_version:
+            return data
+
+        errors = validate_geometry(
+            geometry, float(site_version.width_m), float(site_version.height_m)
+        )
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return data
+
 
 class SiteVersionSerializer(serializers.ModelSerializer):
     features = SiteFeatureSerializer(many=True, read_only=True)
@@ -279,9 +343,40 @@ class PlantCultivarSerializer(serializers.ModelSerializer):
             "liters_per_week_estimate",
             "style_tags",
             "color",
+            "image_url",
+            "foliage_type",
+            "color_winter",
             "provenance",
             "is_verified",
             "is_active",
+            "created_at",
+            "updated_at",
+        )
+
+
+class GrassSpeciesSerializer(serializers.ModelSerializer):
+    emoji = serializers.SerializerMethodField()
+
+    def get_emoji(self, obj: GrassSpecies) -> str:
+        return "🌱"
+
+    class Meta:
+        model = GrassSpecies
+        fields = (
+            "id",
+            "slug",
+            "common_name",
+            "scientific_name",
+            "liters_per_m2_week",
+            "sunlight",
+            "foot_traffic_resistance",
+            "seasonality",
+            "image_url",
+            "emoji",
+            "source",
+            "valid_from",
+            "provenance",
+            "is_verified",
             "created_at",
             "updated_at",
         )
@@ -407,6 +502,28 @@ class IrrigationZoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = IrrigationZone
         fields = "__all__"
+
+
+class IrrigationNetworkDesignSerializer(serializers.ModelSerializer):
+    zones = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=IrrigationZone.objects.all(), required=False
+    )
+
+    class Meta:
+        model = IrrigationNetworkDesign
+        fields = (
+            "id",
+            "layout",
+            "water_source_x",
+            "water_source_y",
+            "water_source_type",
+            "main_pipe_route",
+            "num_main_pipes",
+            "zones",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "created_at", "updated_at")
 
 
 class PriceBookSerializer(serializers.ModelSerializer):
@@ -546,6 +663,65 @@ class ObstacleInputSerializer(StrictSerializer):
     width = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.01"))
     height = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.01"))
     label = serializers.CharField(max_length=120, default="Obstacle")
+    feature_type = serializers.ChoiceField(
+        choices=["pool", "quincho", "terrace", "path", "house", "other"],
+        required=False,
+        allow_null=True,
+    )
+
+
+class PointSerializer(serializers.Serializer):
+    x = serializers.FloatField(min_value=0)
+    y = serializers.FloatField(min_value=0)
+
+
+class LawnZoneInputSerializer(StrictSerializer):
+    x = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0"))
+    y = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0"))
+    width = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.01"))
+    height = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.01"))
+    liters_per_m2_week = serializers.DecimalField(
+        max_digits=10, decimal_places=3, min_value=Decimal("0.01"), required=False
+    )
+    polygon = serializers.ListField(
+        child=PointSerializer(), required=False, min_length=3, allow_null=True
+    )
+    grass_species_slug = serializers.SlugField(required=False, allow_blank=False, allow_null=True)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        polygon = attrs.get("polygon")
+        grass_species_slug = attrs.get("grass_species_slug")
+        liters_per_m2_week = attrs.get("liters_per_m2_week")
+
+        if polygon:
+            points = [{"x": p["x"], "y": p["y"]} for p in polygon]
+            if polygon_self_intersects(points):
+                raise serializers.ValidationError(
+                    {"polygon": ["Polygon has self-intersecting edges"]}
+                )
+            if polygon_area(points) <= 0.0001:
+                raise serializers.ValidationError(
+                    {"polygon": ["Polygon area must be greater than zero"]}
+                )
+
+        if grass_species_slug:
+            try:
+                GrassSpecies.objects.get(slug=grass_species_slug)
+            except GrassSpecies.DoesNotExist as e:
+                raise serializers.ValidationError(
+                    {"grass_species_slug": [f"Grass species '{grass_species_slug}' not found"]}
+                ) from e
+
+        if not liters_per_m2_week and not grass_species_slug:
+            raise serializers.ValidationError(
+                {
+                    "liters_per_m2_week": [
+                        "Either liters_per_m2_week or grass_species_slug must be provided"
+                    ]
+                }
+            )
+
+        return attrs
 
 
 class PlanInputSerializer(StrictSerializer):
@@ -553,6 +729,7 @@ class PlanInputSerializer(StrictSerializer):
     irrigation = IrrigationPlanInputSerializer(required=False, default=dict)
     requests = PlantRequestInputSerializer(many=True, min_length=1, max_length=500)
     obstacles = ObstacleInputSerializer(many=True, required=False, default=list, max_length=100)
+    lawn_zones = LawnZoneInputSerializer(many=True, required=False, default=list, max_length=100)
     layout_id = serializers.UUIDField(required=False)
     layout_name = serializers.CharField(max_length=180, required=False)
     objective = serializers.CharField(max_length=120, required=False)

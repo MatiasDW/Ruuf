@@ -38,6 +38,10 @@ class PlantCatalogCompatibilityView(APIView):
                     "liters_per_week": float(plant.liters_per_week_estimate),
                     "style_tags": plant.style_tags,
                     "color": plant.color,
+                    "image_url": plant.image_url,
+                    "emoji": CompatibilityPlantSerializer.EMOJI_BY_CATEGORY.get(
+                        plant.category, "🌿"
+                    ),
                 }
                 for plant in plants
             ]

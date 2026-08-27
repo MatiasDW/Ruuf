@@ -7,8 +7,9 @@ Ruuf is a residential landscaping planner with a responsive React editor and a p
 - responsive customer flow at `/`, `/proyecto`, `/plantas`, and `/plan`
 - provisional catalog of trees, shrubs, flowers, and grasses
 - deterministic placement with yard, obstacle, sunlight, and plant-spacing checks
-- structured conflict rings for drag-and-drop validation
-- irrigation volume, efficiency range, and Chilean `CLP/m3` cost estimates
+- interactive metric plan with draggable plants and an editable rectangular or L-shaped house
+- live boundary, house, and plant-spacing validation with visible clearance rings
+- irrigation L1 overlay with demand zones, suggested pipes, emitter reach, volume, and Chilean `CLP/m3` costs
 - session authentication with CSRF protection
 - organizations and roles: owner, admin, designer, finance, and viewer
 - clients, projects, versioned sites, layouts, items, and validation issues
@@ -66,30 +67,26 @@ make docker-up
 
 The backend container applies migrations and runs the idempotent catalog seed before Gunicorn starts. PostgreSQL and Redis are internal-only and are not published to the host.
 
-## Run locally
+Set `BACKEND_PORT` and `FRONTEND_PORT` in `.env` when the default ports are already used by another Conductor workspace.
 
-Use Node `22.13.0` from `.nvmrc` and Python `3.12`.
+## Development workflow
+
+Docker is the only Python prerequisite. Backend formatting, linting, type checks, migrations checks, tests, and dependency audits run in the `ruuf-backend-dev` image. No host Python installation or virtual environment is required.
+
+Use Node `22.13.0` from `.nvmrc` for frontend quality commands:
 
 ```bash
-python3.12 -m venv .venv
 make install
-make backend-migrate
-make backend-seed
 make check
 ```
 
-Run Django directly:
+After `make docker-up`, operational Django commands execute inside the running backend container:
 
 ```bash
-cd backend
-../.venv/bin/python manage.py runserver 0.0.0.0:5050
-```
-
-Run React in another terminal:
-
-```bash
-cd frontend
-npm run dev
+make backend-migrate
+make backend-seed
+make backend-shell
+docker compose exec backend python manage.py createsuperuser
 ```
 
 ## API

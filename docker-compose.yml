@@ -33,6 +33,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      target: production
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,11 +47,13 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY must be set in .env}
       DJANGO_DEBUG: "1"
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
-      CSRF_TRUSTED_ORIGINS: http://localhost:5173
-      CORS_ORIGINS: http://localhost:5173
+      CSRF_TRUSTED_ORIGINS: http://localhost:${FRONTEND_PORT:-5173}
+      CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-5173}
       RUN_MIGRATIONS: "1"
     ports:
-      - "5050:8000"
+      - "${BACKEND_PORT:-5050}:8000"
+    volumes:
+      - ./backend:/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 10s
@@ -61,6 +64,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      target: production
     command: ["celery", "-A", "config", "worker", "--loglevel=INFO", "--concurrency=2"]
     depends_on:
       backend:
@@ -74,6 +78,8 @@ services:
       CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/2
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       DJANGO_DEBUG: "1"
+    volumes:
+      - ./backend:/app
 
   frontend:
     build:
@@ -85,7 +91,13 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT:-5173}:5173"
+    # El código fuente se monta para que Vite sirva siempre el árbol actual con HMR;
+    # sin esto el contenedor queda congelado en la copia del último build de imagen.
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
 
 volumes:
   postgres_data:

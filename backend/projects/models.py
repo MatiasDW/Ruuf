@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from catalog.models import GrassSpecies
 from common.models import UUIDTimeStampedModel
 from identity.models import Client, Organization, User
 
@@ -115,7 +116,17 @@ class SiteFeature(UUIDTimeStampedModel):
         FENCE = "fence", "Fence"
         UTILITY = "utility", "Utility"
         EXISTING_PLANT = "existing_plant", "Existing plant"
+        LAWN_ZONE = "lawn_zone", "Lawn zone"
+        POOL = "pool", "Pool"
+        QUINCHO = "quincho", "Quincho"
+        TERRACE = "terrace", "Terrace"
+        PATH = "path", "Path"
         OTHER = "other", "Other"
+
+    class WaterNeed(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
 
     site_version = models.ForeignKey(SiteVersion, on_delete=models.CASCADE, related_name="features")
     feature_type = models.CharField(max_length=30, choices=FeatureType.choices)
@@ -128,6 +139,28 @@ class SiteFeature(UUIDTimeStampedModel):
     source = models.CharField(max_length=30, default="client")
     confidence = models.DecimalField(max_digits=4, decimal_places=3, default=0.5)
     metadata = models.JSONField(default=dict, blank=True)
+    water_need = models.CharField(
+        max_length=10,
+        choices=WaterNeed.choices,
+        null=True,
+        blank=True,
+        help_text="Water need for lawn zones",
+    )
+    liters_per_m2_week = models.DecimalField(
+        max_digits=10,
+        decimal_places=3,
+        null=True,
+        blank=True,
+        help_text="Weekly water consumption per m² (lawn zones only)",
+    )
+    grass_species = models.ForeignKey(
+        GrassSpecies,
+        on_delete=models.SET_NULL,
+        related_name="lawn_zones",
+        null=True,
+        blank=True,
+        help_text="Grass species for lawn zone (optional)",
+    )
 
     class Meta:
         indexes = [models.Index(fields=("site_version", "feature_type"))]

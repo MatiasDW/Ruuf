@@ -1,39 +1,51 @@
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { categoryLabels, waterLabels } from "../features/planner/model";
-import type { Plant, PlantCategory, PlantRequest } from "../features/planner/types";
+import { Stepper } from "../features/planner/Stepper";
+import { StyleCard } from "../features/planner/StyleCard";
+import { CategoryChips } from "../features/planner/CategoryChips";
+import { PlantCard } from "../features/planner/PlantCard";
+import type { Plant, PlantCategory, PlantRequest, LandscapeStyle } from "../features/planner/types";
 
 interface PlantsViewProps {
   plants: Plant[];
   requests: PlantRequest[];
   loading: boolean;
   error: string;
+  style?: LandscapeStyle;
   onQuantityChange: (plant: Plant, quantity: number) => void;
   onGenerate: () => Promise<boolean>;
 }
 
-type CategoryFilter = "all" | PlantCategory;
-
-const filters: Array<{ value: CategoryFilter; label: string }> = [
-  { value: "all", label: "Todas" },
-  { value: "tree", label: "Árboles" },
-  { value: "shrub", label: "Arbustos" },
-  { value: "flower", label: "Flores" },
-  { value: "grass", label: "Cubresuelos" },
-];
+const STYLE_LABELS: Record<LandscapeStyle, string> = {
+  mediterranean: "Mediterráneo",
+  native: "Nativo",
+  formal: "Formal",
+  lush: "Frondoso",
+};
 
 export function PlantsView({
   plants,
   requests,
   loading,
   error,
+  style = "native",
   onQuantityChange,
   onGenerate,
 }: PlantsViewProps) {
-  const [filter, setFilter] = useState<CategoryFilter>("all");
+  const [selectedCategory, setSelectedCategory] = useState<PlantCategory | null>(null);
   const navigate = useNavigate();
-  const visiblePlants = plants.filter((plant) => filter === "all" || plant.category === filter);
-  const selectedCount = requests.reduce((total, item) => total + item.quantity, 0);
+
+  const visiblePlants = selectedCategory
+    ? plants.filter((p) => p.category === selectedCategory)
+    : plants;
+
+  const selectedPlants = requests.filter((r) => r.quantity > 0);
+
+  const suggestedPlants = plants
+    .filter(
+      (p) => p.style_tags.includes(style) && !selectedPlants.some((sp) => sp.plant_id === p.id),
+    )
+    .slice(0, 4);
 
   function quantityFor(plantId: string): number {
     return requests.find((item) => item.plant_id === plantId)?.quantity ?? 0;
@@ -47,115 +59,103 @@ export function PlantsView({
   }
 
   return (
-    <div className="workflow-view page-enter">
-      <header className="workflow-heading plants-heading">
-        <p className="eyebrow">Paso 2 de 3</p>
-        <h1>Elige lo que te gustaría ver crecer.</h1>
-        <p>
-          No necesitas saber si todo cabe. El motor revisará espacio, sol y consumo para proponer
-          una combinación realista.
-        </p>
-        <div className="step-track" aria-label="Paso 2 de 3">
-          <span className="complete" />
-          <span className="complete" />
-          <span />
-        </div>
-      </header>
+    <div className="plants-view-new">
+      <div className="plants-container">
+        <Stepper currentStep={3} totalSteps={4} />
+        <h1 className="plants-title">Elige plantas para tu jardín</h1>
 
-      <form className="plants-workspace" onSubmit={submitSelection}>
-        <div className="catalog-column">
-          <div className="filter-row" role="group" aria-label="Filtrar por tipo de planta">
-            {filters.map((item) => (
-              <button
-                key={item.value}
-                className={filter === item.value ? "filter-chip active" : "filter-chip"}
-                type="button"
-                onClick={() => setFilter(item.value)}
-              >
-                {item.label}
-              </button>
+        {/* Preferencias */}
+        <section className="plants-section">
+          <h2 className="section-title">Tus preferencias</h2>
+          <div className="styles-grid">
+            {Object.entries(STYLE_LABELS).map(([key, label]) => (
+              <StyleCard
+                key={key}
+                style={key as LandscapeStyle}
+                label={label}
+                isSelected={style === key}
+                onChange={() => {}}
+              />
             ))}
           </div>
+        </section>
+
+        {/* Wishlist */}
+        <section className="plants-section">
+          <h2 className="section-title">Mi selección</h2>
+          <CategoryChips selected={selectedCategory} onChange={setSelectedCategory} />
 
           {error ? <p className="error-banner">{error}</p> : null}
+          {loading ? <p>Cargando...</p> : null}
 
-          <div className="plant-catalog">
-            {visiblePlants.map((plant) => {
-              const quantity = quantityFor(plant.id);
-              return (
-                <article className={quantity ? "plant-card selected" : "plant-card"} key={plant.id}>
-                  <div
-                    className={`plant-portrait plant-portrait-${plant.category}`}
-                    style={{ "--plant-color": plant.color } as CSSProperties}
-                    aria-hidden="true"
-                  >
-                    <span>{plant.name.slice(0, 1)}</span>
-                  </div>
-                  <div className="plant-card-copy">
-                    <span className="plant-category">{categoryLabels[plant.category]}</span>
-                    <h2>{plant.name}</h2>
-                    <div className="plant-facts">
-                      <span>Radio {plant.clearance_radius_m} m</span>
-                      <span>{waterLabels[plant.water_need]} riego</span>
-                    </div>
-                  </div>
-                  <div className="quantity-control" aria-label={`Cantidad de ${plant.name}`}>
-                    <button
-                      type="button"
-                      aria-label={`Quitar ${plant.name}`}
-                      onClick={() => onQuantityChange(plant, quantity - 1)}
-                      disabled={quantity === 0}
-                    >
-                      −
-                    </button>
-                    <output aria-live="polite">{quantity}</output>
-                    <button
-                      type="button"
-                      aria-label={`Agregar ${plant.name}`}
-                      onClick={() => onQuantityChange(plant, quantity + 1)}
-                    >
-                      +
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+          <div className="plants-grid">
+            {visiblePlants.map((plant) => (
+              <PlantCard
+                key={plant.id}
+                plant={plant}
+                quantity={quantityFor(plant.id)}
+                onQuantityChange={(qty) => onQuantityChange(plant, qty)}
+              />
+            ))}
           </div>
-        </div>
+        </section>
 
-        <aside className="selection-summary">
-          <p className="eyebrow">Tu selección</p>
-          <strong className="selection-count">{selectedCount}</strong>
-          <span>plantas solicitadas</span>
-          <div className="selection-list">
-            {requests
-              .filter((item) => item.quantity > 0)
-              .map((item) => (
-                <div key={item.plant_id}>
-                  <span>{item.name}</span>
-                  <strong>× {item.quantity}</strong>
+        {/* Tu lista */}
+        {selectedPlants.length > 0 && (
+          <section className="plants-section">
+            <h2 className="section-title">Tu lista ({selectedPlants.length})</h2>
+            <div className="selected-plants">
+              {selectedPlants.map((req) => {
+                const plant = plants.find((p) => p.id === req.plant_id);
+                return plant ? (
+                  <div key={plant.id} className="selected-plant-item">
+                    <span>
+                      {plant.name} × {req.quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onQuantityChange(plant, 0)}
+                      className="remove-button"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : null;
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Sugerencias */}
+        {suggestedPlants.length > 0 && (
+          <section className="plants-section">
+            <h2 className="section-title">Sugerencias para tu estilo {STYLE_LABELS[style]}</h2>
+            <div className="plants-grid">
+              {suggestedPlants.map((plant) => (
+                <div key={plant.id} className="suggestion-card">
+                  <div className="suggestion-badge" style={{ backgroundColor: plant.color }}>
+                    {plant.name.charAt(0)}
+                  </div>
+                  <p className="suggestion-name">{plant.name}</p>
+                  <button
+                    type="button"
+                    onClick={() => onQuantityChange(plant, 1)}
+                    className="suggestion-add"
+                  >
+                    Añadir
+                  </button>
                 </div>
               ))}
-          </div>
-          <p className="summary-note">
-            Si una especie no funciona en este terreno, explicaremos por qué y mostraremos
-            alternativas.
-          </p>
-        </aside>
+            </div>
+          </section>
+        )}
 
-        <div className="workflow-actions">
-          <button className="button quiet" type="button" onClick={() => navigate("/proyecto")}>
-            Volver al espacio
+        <form onSubmit={submitSelection} className="plants-actions">
+          <button type="submit" className="plants-button" disabled={selectedPlants.length === 0}>
+            Continuar al plano
           </button>
-          <button
-            className="button primary"
-            type="submit"
-            disabled={loading || selectedCount === 0}
-          >
-            {loading ? "Calculando propuesta..." : "Generar mi propuesta"}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

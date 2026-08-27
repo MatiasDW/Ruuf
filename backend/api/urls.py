@@ -8,6 +8,7 @@ from api.views import (
     ClientViewSet,
     CSRFView,
     ExpenseViewSet,
+    GrassSpeciesViewSet,
     IrrigationEstimateViewSet,
     IrrigationZoneViewSet,
     LayoutVersionViewSet,
@@ -46,6 +47,7 @@ router.register("site-features", SiteFeatureViewSet, basename="site-feature")
 router.register("plant-species", PlantSpeciesViewSet, basename="plant-species")
 router.register("plant-cultivars", PlantCultivarViewSet, basename="plant-cultivar")
 router.register("plant-rules", PlantRuleVersionViewSet, basename="plant-rule")
+router.register("grass-species", GrassSpeciesViewSet, basename="grass-species")
 router.register("layouts", LayoutViewSet, basename="layout")
 router.register("layout-versions", LayoutVersionViewSet, basename="layout-version")
 router.register("validation-issues", ValidationIssueViewSet, basename="validation-issue")

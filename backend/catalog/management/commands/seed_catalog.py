@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from catalog.models import PlantCultivar, PlantSpecies
+from catalog.models import GrassSpecies, PlantCultivar, PlantSpecies
 
 PLANTS: tuple[dict[str, Any], ...] = (
     {
@@ -22,6 +23,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "60.00",
         "styles": ["native", "mediterranean"],
         "color": "#7ea16b",
+        "foliage_type": "deciduous",
+        "color_winter": "#8b7355",
     },
     {
         "slug": "jacaranda",
@@ -36,6 +39,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "85.00",
         "styles": ["lush", "formal"],
         "color": "#8b6dbf",
+        "foliage_type": "deciduous",
+        "color_winter": "#6b5b6b",
     },
     {
         "slug": "olive",
@@ -50,6 +55,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "55.00",
         "styles": ["mediterranean", "formal"],
         "color": "#94a86f",
+        "foliage_type": "evergreen",
+        "color_winter": "#94a86f",
     },
     {
         "slug": "lavender",
@@ -64,6 +71,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "8.00",
         "styles": ["mediterranean", "formal"],
         "color": "#b48ad6",
+        "foliage_type": "evergreen",
+        "color_winter": "#b48ad6",
     },
     {
         "slug": "rosemary",
@@ -78,6 +87,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "9.00",
         "styles": ["mediterranean", "formal"],
         "color": "#5b8c5a",
+        "foliage_type": "evergreen",
+        "color_winter": "#5b8c5a",
     },
     {
         "slug": "agapanthus",
@@ -92,6 +103,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "12.00",
         "styles": ["formal", "lush"],
         "color": "#7ca3d8",
+        "foliage_type": "evergreen",
+        "color_winter": "#7ca3d8",
     },
     {
         "slug": "coiron",
@@ -106,6 +119,8 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "7.00",
         "styles": ["native", "mediterranean"],
         "color": "#c2b280",
+        "foliage_type": "semi_deciduous",
+        "color_winter": "#a89060",
     },
     {
         "slug": "hydrangea",
@@ -120,6 +135,66 @@ PLANTS: tuple[dict[str, Any], ...] = (
         "liters": "18.00",
         "styles": ["lush"],
         "color": "#7fb5d6",
+        "foliage_type": "deciduous",
+        "color_winter": "#8b7a6b",
+    },
+)
+
+GRASSES: tuple[dict[str, Any], ...] = (
+    {
+        "slug": "chepica-alemana",
+        "common_name": "Chépica Alemana",
+        "scientific_name": "Agrostis capillaris",
+        "liters_per_m2_week": "2.50",
+        "sunlight": "full_sun",
+        "foot_traffic": "high",
+        "seasonality": "Year-round green, winter dormant in extreme frost",
+        "source": "INIA Chile - Pastos y Forrajes",
+        "valid_from": "2024-01-15",
+    },
+    {
+        "slug": "festuca",
+        "common_name": "Festuca",
+        "scientific_name": "Festuca arundinacea",
+        "liters_per_m2_week": "2.00",
+        "sunlight": "full_sun",
+        "foot_traffic": "high",
+        "seasonality": "Year-round green",
+        "source": "INIA Chile - Pastos y Forrajes",
+        "valid_from": "2024-01-15",
+    },
+    {
+        "slug": "kikuyo",
+        "common_name": "Kikuyo",
+        "scientific_name": "Cenchrus clandestinus",
+        "liters_per_m2_week": "3.00",
+        "sunlight": "full_sun",
+        "foot_traffic": "high",
+        "seasonality": "Winter dormant (May-August in Chile)",
+        "source": "INIA Chile - Pastos y Forrajes",
+        "valid_from": "2024-01-15",
+    },
+    {
+        "slug": "ray-grass",
+        "common_name": "Ray Grass",
+        "scientific_name": "Lolium perenne",
+        "liters_per_m2_week": "2.25",
+        "sunlight": "full_sun",
+        "foot_traffic": "high",
+        "seasonality": "Year-round green",
+        "source": "INIA Chile - Pastos y Forrajes",
+        "valid_from": "2024-01-15",
+    },
+    {
+        "slug": "mezcla-sombra",
+        "common_name": "Mezcla para Sombra",
+        "scientific_name": "Festuca rubra + Poa nemoralis",
+        "liters_per_m2_week": "1.75",
+        "sunlight": "partial_shade",
+        "foot_traffic": "medium",
+        "seasonality": "Year-round green",
+        "source": "INIA Chile - Pastos y Forrajes",
+        "valid_from": "2024-01-15",
     },
 )
 
@@ -154,9 +229,29 @@ class Command(BaseCommand):
                     "liters_per_week_estimate": Decimal(item["liters"]),
                     "style_tags": item["styles"],
                     "color": item["color"],
+                    "foliage_type": item.get("foliage_type", "evergreen"),
+                    "color_winter": item.get("color_winter", ""),
                     "provenance": "prototype_unverified",
                     "is_verified": False,
                     "is_active": True,
                 },
             )
         self.stdout.write(self.style.SUCCESS(f"Seeded {len(PLANTS)} provisional plants."))
+
+        for grass in GRASSES:
+            GrassSpecies.objects.update_or_create(
+                slug=grass["slug"],
+                defaults={
+                    "common_name": grass["common_name"],
+                    "scientific_name": grass["scientific_name"],
+                    "liters_per_m2_week": Decimal(grass["liters_per_m2_week"]),
+                    "sunlight": grass["sunlight"],
+                    "foot_traffic_resistance": grass["foot_traffic"],
+                    "seasonality": grass["seasonality"],
+                    "source": grass["source"],
+                    "valid_from": date.fromisoformat(grass["valid_from"]),
+                    "provenance": "prototype_unverified",
+                    "is_verified": False,
+                },
+            )
+        self.stdout.write(self.style.SUCCESS(f"Seeded {len(GRASSES)} grass species."))

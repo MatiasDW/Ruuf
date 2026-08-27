@@ -80,3 +80,90 @@ def test_tenant_data_is_not_visible_to_other_organization(
     response = client.get(f"/api/v1/projects/{project.id}/")
 
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_cliente_can_read_layout_but_not_modify(
+    organization: Organization, layout, user_factory, seeded_groups
+) -> None:
+    """Cliente (viewer group) can GET but receives 403 on POST/PUT/DELETE."""
+    from django.contrib.auth.models import Group
+
+    cliente = user_factory(email="cliente@example.com", display_name="Cliente")
+    cliente.groups.add(Group.objects.get(name="cliente"))
+    Membership.objects.create(
+        user=cliente,
+        organization=organization,
+        role=Membership.Role.VIEWER,
+        status=Membership.Status.ACTIVE,
+    )
+    client = APIClient()
+    client.force_authenticate(user=cliente)
+
+    response_get = client.get(f"/api/v1/layouts/{layout.id}/")
+    assert response_get.status_code == 200
+
+    response_put = client.put(
+        f"/api/v1/layouts/{layout.id}/",
+        {"name": "Modified"},
+        format="json",
+    )
+    assert response_put.status_code == 403
+
+
+@pytest.mark.django_db
+def test_asesor_can_edit_layout_but_not_delete_organization(
+    organization: Organization, layout, user_factory, seeded_groups
+) -> None:
+    """Asesor (designer group) can edit layouts but cannot delete organization."""
+    from django.contrib.auth.models import Group
+
+    asesor = user_factory(email="asesor@example.com", display_name="Asesor")
+    asesor.groups.add(Group.objects.get(name="asesor"))
+    Membership.objects.create(
+        user=asesor,
+        organization=organization,
+        role=Membership.Role.DESIGNER,
+        status=Membership.Status.ACTIVE,
+    )
+    client = APIClient()
+    client.force_authenticate(user=asesor)
+
+    response_put = client.put(
+        f"/api/v1/layouts/{layout.id}/",
+        {"name": "Modified by asesor", "project": str(layout.project.id)},
+        format="json",
+    )
+    assert response_put.status_code == 200
+
+    response_delete_org = client.delete(f"/api/v1/organizations/{organization.id}/")
+    assert response_delete_org.status_code == 403
+
+
+@pytest.mark.django_db
+def test_admin_has_full_access(
+    organization: Organization, layout, user_factory, seeded_groups
+) -> None:
+    """Admin (owner group) can create, read, update, delete."""
+    from django.contrib.auth.models import Group
+
+    admin = user_factory(email="admin@example.com", display_name="Admin")
+    admin.groups.add(Group.objects.get(name="admin"))
+    Membership.objects.create(
+        user=admin,
+        organization=organization,
+        role=Membership.Role.ADMIN,
+        status=Membership.Status.ACTIVE,
+    )
+    client = APIClient()
+    client.force_authenticate(user=admin)
+
+    response_get = client.get(f"/api/v1/layouts/{layout.id}/")
+    assert response_get.status_code == 200
+
+    response_put = client.put(
+        f"/api/v1/layouts/{layout.id}/",
+        {"name": "Admin modified", "project": str(layout.project.id)},
+        format="json",
+    )
+    assert response_put.status_code == 200

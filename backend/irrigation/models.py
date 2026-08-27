@@ -6,7 +6,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from common.models import UUIDTimeStampedModel
-from planning.models import LayoutVersion
+from planning.models import Layout, LayoutVersion
 
 
 class WaterProvider(UUIDTimeStampedModel):
@@ -95,3 +95,43 @@ class IrrigationEstimate(UUIDTimeStampedModel):
                 name="irrigation_unique_estimate_scenario",
             )
         ]
+
+
+class IrrigationNetworkDesign(UUIDTimeStampedModel):
+    """Editable irrigation network: water source location, type, pipe route, & zones."""
+
+    class WaterSourceType(models.TextChoices):
+        POTABLE = "potable", "Potable (red pública)"
+        WELL = "well", "Well (pozo)"
+        RAINWATER = "rainwater", "Rainwater (recolección)"
+        GREY = "grey", "Grey water (reutilizada)"
+
+    layout = models.OneToOneField(
+        Layout, on_delete=models.CASCADE, related_name="irrigation_network_design"
+    )
+    water_source_x = models.DecimalField(
+        max_digits=10, decimal_places=3, validators=[MinValueValidator(Decimal("0"))]
+    )
+    water_source_y = models.DecimalField(
+        max_digits=10, decimal_places=3, validators=[MinValueValidator(Decimal("0"))]
+    )
+    water_source_type = models.CharField(
+        max_length=20, choices=WaterSourceType.choices, default=WaterSourceType.POTABLE
+    )
+    main_pipe_route = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Array of {x, y} points defining the main pipe path",
+    )
+    num_main_pipes = models.PositiveIntegerField(
+        default=1, validators=[MinValueValidator(1), MaxValueValidator(4)]
+    )
+    zones = models.ManyToManyField(
+        IrrigationZone,
+        related_name="network_designs",
+        blank=True,
+        help_text="Zones served by this network design",
+    )
+
+    def __str__(self) -> str:
+        return f"Network for {self.layout.name}"
