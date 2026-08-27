@@ -7,7 +7,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from audit.models import AuditEvent
-from catalog.models import PlantCultivar, PlantRuleVersion, PlantSpecies
+from catalog.models import GrassSpecies, PlantCultivar, PlantRuleVersion, PlantSpecies
 from domain.geometry import validate_geometry
 from finance.models import (
     Expense,
@@ -334,6 +334,27 @@ class PlantCultivarSerializer(serializers.ModelSerializer):
             "provenance",
             "is_verified",
             "is_active",
+            "created_at",
+            "updated_at",
+        )
+
+
+class GrassSpeciesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GrassSpecies
+        fields = (
+            "id",
+            "slug",
+            "common_name",
+            "scientific_name",
+            "liters_per_m2_week",
+            "sunlight",
+            "foot_traffic_resistance",
+            "seasonality",
+            "source",
+            "valid_from",
+            "provenance",
+            "is_verified",
             "created_at",
             "updated_at",
         )
