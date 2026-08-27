@@ -62,7 +62,7 @@ from api.serializers import (
 )
 from audit.models import AuditEvent
 from audit.services import record_audit_event
-from catalog.models import PlantCultivar, PlantRuleVersion, PlantSpecies
+from catalog.models import GrassSpecies, PlantCultivar, PlantRuleVersion, PlantSpecies
 from finance.models import (
     Expense,
     PriceBook,
@@ -346,6 +346,18 @@ class PlantCultivarViewSet(viewsets.ReadOnlyModelViewSet):
 class PlantRuleVersionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = PlantRuleVersion.objects.select_related("cultivar", "reviewed_by")
     serializer_class = PlantRuleVersionSerializer
+    permission_classes = [AllowAny]
+
+
+class GrassSpeciesViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = GrassSpecies.objects.all()
+    serializer_class = GrassSpeciesSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class GrassSpeciesPublicViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = GrassSpecies.objects.filter(provenance="verified")
+    serializer_class = GrassSpeciesSerializer
     permission_classes = [AllowAny]
 
 
