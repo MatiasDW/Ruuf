@@ -8,6 +8,7 @@ from rest_framework import serializers
 
 from audit.models import AuditEvent
 from catalog.models import PlantCultivar, PlantRuleVersion, PlantSpecies
+from domain.geometry import validate_geometry
 from finance.models import (
     Expense,
     PriceBook,
@@ -238,6 +239,30 @@ class SiteFeatureSerializer(serializers.ModelSerializer):
         model = SiteFeature
         fields = "__all__"
         read_only_fields = ("id", "created_at", "updated_at")
+
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Validate geometry against site boundaries.
+
+        Geometry can be:
+        - Rectangle: {type: "rect", x, y, width, height}
+        - Polygon: {type: "polygon", points: [{x, y}, ...]}
+
+        All points must be within site boundaries; polygons must have ≥3 points,
+        non-zero area, and no self-intersections.
+        """
+        geometry = data.get("geometry")
+        site_version = data.get("site_version")
+
+        if not geometry or not site_version:
+            return data
+
+        errors = validate_geometry(
+            geometry, float(site_version.width_m), float(site_version.height_m)
+        )
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return data
 
 
 class SiteVersionSerializer(serializers.ModelSerializer):
