@@ -5,7 +5,8 @@ interface IrrigationEditorProps {
   state: IrrigationEditorState;
   yardWidth: number;
   yardHeight: number;
-  canSave: boolean;
+  /** "cloud": persiste en la API; "local": sin sesión, se guarda en este navegador. */
+  persistenceScope: "cloud" | "local";
   onStateChange: (state: Partial<IrrigationEditorState>) => void;
   onSave: () => Promise<void>;
 }
@@ -14,7 +15,7 @@ export function IrrigationEditor({
   state,
   yardWidth,
   yardHeight,
-  canSave,
+  persistenceScope,
   onStateChange,
   onSave,
 }: IrrigationEditorProps) {
@@ -176,14 +177,13 @@ export function IrrigationEditor({
         <button
           className="save-button"
           onClick={handleSave}
-          disabled={!canSave || state.isSaving || !state.isDirty}
-          title={!canSave ? "Inicia sesión y guarda el plan primero" : undefined}
+          disabled={state.isSaving || !state.isDirty}
           data-testid="save-irrigation-network"
         >
           {state.isSaving ? "Guardando..." : "Guardar red de riego"}
         </button>
-        {!canSave && (
-          <p className="save-hint">Inicia sesión y guarda el plan para persistir la red.</p>
+        {persistenceScope === "local" && (
+          <p className="save-hint">Sin sesión: la red se guarda solo en este navegador.</p>
         )}
       </div>
     </div>

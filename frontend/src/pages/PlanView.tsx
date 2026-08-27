@@ -4,7 +4,9 @@ import { issueLabel, validatePlacements } from "../features/planner/editor";
 import { GardenMap, type GardenSelection } from "../features/planner/GardenMap";
 import {
   fetchIrrigationNetwork,
+  loadLocalIrrigationDraft,
   saveIrrigationNetwork,
+  saveLocalIrrigationDraft,
 } from "../features/planner/irrigation-network";
 import {
   formatCurrency,
@@ -19,6 +21,7 @@ import type {
   FilterMode,
   HouseFormFields,
   IrrigationEditorState,
+  IrrigationNetworkDesign,
   LawnZone,
   PersistenceView,
   Placement,
@@ -133,29 +136,41 @@ export function PlanView({
     return () => window.removeEventListener("keydown", handleKeydown);
   }, [canRedo, canUndo, onRedo, onUndo]);
 
-  // Hidrata el editor desde el diseño guardado una sola vez por layout; sin este guard
-  // el efecto pisaría lo que el usuario está editando en cada re-render.
+  // Hidrata el editor desde el diseño guardado una sola vez por origen (layout de la
+  // API con sesión, o el borrador local del navegador sin sesión); sin este guard el
+  // efecto pisaría lo que el usuario está editando en cada re-render.
   const hydratedNetworkLayout = useRef<string | null>(null);
   useEffect(() => {
-    const layoutId = persistence.layoutId;
-    if (filterMode !== "water" || !layoutId || hydratedNetworkLayout.current === layoutId) {
+    if (filterMode !== "water") {
       return;
     }
-    hydratedNetworkLayout.current = layoutId;
-    fetchIrrigationNetwork(layoutId)
+    const sourceKey = persistence.layoutId ?? "local";
+    if (hydratedNetworkLayout.current === sourceKey) {
+      return;
+    }
+    hydratedNetworkLayout.current = sourceKey;
+
+    function adoptDesign(design: IrrigationNetworkDesign) {
+      onSetIrrigationEditor({
+        sourceX: design.water_source_x,
+        sourceY: design.water_source_y,
+        waterSourceType: design.water_source_type,
+        pipeRoute: design.main_pipe_route,
+        numPipes: (design.num_main_pipes as 1 | 2 | 3 | 4) || 1,
+        isEditing: false,
+        isDirty: false,
+        isSaving: false,
+      });
+    }
+
+    if (!persistence.layoutId) {
+      const draft = loadLocalIrrigationDraft();
+      if (draft) adoptDesign(draft);
+      return;
+    }
+    fetchIrrigationNetwork(persistence.layoutId)
       .then((design) => {
-        if (design) {
-          onSetIrrigationEditor({
-            sourceX: design.water_source_x,
-            sourceY: design.water_source_y,
-            waterSourceType: design.water_source_type,
-            pipeRoute: design.main_pipe_route,
-            numPipes: (design.num_main_pipes as 1 | 2 | 3 | 4) || 1,
-            isEditing: false,
-            isDirty: false,
-            isSaving: false,
-          });
-        }
+        if (design) adoptDesign(design);
       })
       .catch(() => {
         // Layout sin diseño de red guardado: el editor parte con los valores por defecto.
@@ -316,19 +331,23 @@ export function PlanView({
               state={irrigationEditor}
               yardWidth={form.yard_width}
               yardHeight={form.yard_height}
-              canSave={Boolean(persistence.layoutId && persistence.email)}
+              persistenceScope={persistence.layoutId && persistence.email ? "cloud" : "local"}
               onStateChange={(partial) =>
                 onSetIrrigationEditor({ ...irrigationEditor, ...partial })
               }
               onSave={async () => {
-                if (!persistence.layoutId) return;
-                await saveIrrigationNetwork(persistence.layoutId, {
+                const design = {
                   water_source_x: irrigationEditor.sourceX,
                   water_source_y: irrigationEditor.sourceY,
                   water_source_type: irrigationEditor.waterSourceType,
                   main_pipe_route: irrigationEditor.pipeRoute,
                   num_main_pipes: irrigationEditor.numPipes,
-                });
+                };
+                if (persistence.layoutId && persistence.email) {
+                  await saveIrrigationNetwork(persistence.layoutId, design);
+                  return;
+                }
+                saveLocalIrrigationDraft(design);
               }}
             />
           ) : (

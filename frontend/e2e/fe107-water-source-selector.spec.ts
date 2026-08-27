@@ -132,3 +132,28 @@ test("responsive on mobile", async ({ page }) => {
   const box = await firstButton.boundingBox();
   expect(box?.width).toBeGreaterThan(0);
 });
+
+test("anonymous save persists the network in the browser and survives reload", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(Boolean(isMobile), "flujo de editor de escritorio");
+  await page.goto("/plan");
+  await page.getByRole("button", { name: "Riego", exact: true }).click();
+  await page.getByTestId("edit-irrigation-button").click();
+
+  // Editar: fuente tipo pozo y 3 tuberías.
+  await page.getByRole("button", { name: /Pozo/ }).click();
+  await page.getByRole("button", { name: "3", exact: true }).click();
+
+  const saveButton = page.getByTestId("save-irrigation-network");
+  await expect(saveButton).toBeEnabled();
+  await saveButton.click();
+  await expect(saveButton).toBeDisabled(); // isDirty vuelve a false tras guardar
+
+  await page.reload();
+  await page.getByRole("button", { name: "Riego", exact: true }).click();
+  await page.getByTestId("edit-irrigation-button").click();
+  await expect(page.getByRole("button", { name: /Pozo/ })).toHaveClass(/active/);
+  await expect(page.getByRole("button", { name: "3", exact: true })).toHaveClass(/active/);
+});

@@ -70,3 +70,32 @@ export async function saveIrrigationNetwork(
 
   return (await response.json()) as IrrigationNetworkDesign;
 }
+
+const LOCAL_DRAFT_KEY = "ruuf.irrigation.draft";
+
+/** Persistencia anónima: sin sesión el diseño vive en este navegador. */
+export function saveLocalIrrigationDraft(design: IrrigationNetworkDesign): void {
+  try {
+    localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify(design));
+  } catch {
+    // Modo privado o storage lleno: el diseño sigue vivo en memoria durante la sesión.
+  }
+}
+
+export function loadLocalIrrigationDraft(): IrrigationNetworkDesign | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as IrrigationNetworkDesign;
+    if (
+      typeof parsed.water_source_x !== "number" ||
+      typeof parsed.water_source_y !== "number" ||
+      !Array.isArray(parsed.main_pipe_route)
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
