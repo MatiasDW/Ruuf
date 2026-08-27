@@ -71,7 +71,17 @@ export function buildInitialRequests(plants: Plant[]): PlantRequest[] {
   }));
 }
 
-export function buildPlanPayload(form: PlannerForm, requests: PlantRequest[]): PlanPayload {
+export function buildPlanPayload(
+  form: PlannerForm,
+  requests: PlantRequest[],
+  siteElements: Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    feature_type: string;
+  }> = [],
+): PlanPayload {
   return {
     site: {
       yard_width: form.yard_width,
@@ -91,6 +101,13 @@ export function buildPlanPayload(form: PlannerForm, requests: PlantRequest[]): P
         height: form.obstacle_height,
         label: "House",
       },
+      ...siteElements.map((el) => ({
+        x: el.x,
+        y: el.y,
+        width: el.width,
+        height: el.height,
+        label: el.feature_type,
+      })),
     ],
     requests: requests
       .filter((item) => item.quantity > 0)

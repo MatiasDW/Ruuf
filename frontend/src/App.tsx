@@ -239,7 +239,7 @@ function PlannerApplication() {
         // The first save persists the generated layout; the manual edit lands on top of it.
         const generated = await generatePersistedPlan(
           projectId,
-          buildPlanPayload(planner.form, requests),
+          buildPlanPayload(planner.form, requests, siteElements),
         );
         layoutId = generated.layout_id;
         baseRevision = generated.revision;
@@ -346,7 +346,7 @@ function PlannerApplication() {
     markUnsaved();
 
     try {
-      const data = await createPlan(buildPlanPayload(planner.form, requests));
+      const data = await createPlan(buildPlanPayload(planner.form, requests, siteElements));
       setPlanner((current) => ({
         ...current,
         result: data,
@@ -378,7 +378,9 @@ function PlannerApplication() {
     setLoading(true);
     setError("");
     try {
-      const nextResult = await createPlan(buildPlanPayload(planner.form, nextRequests));
+      const nextResult = await createPlan(
+        buildPlanPayload(planner.form, nextRequests, siteElements),
+      );
       setPlanner((current) => ({
         ...current,
         result: nextResult,

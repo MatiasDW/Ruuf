@@ -22,10 +22,7 @@ export function handleVertexDrag(
     clampLocal(pointX - dragState.offsetX, 0, 100), // Placeholder bounds
     snapStep,
   );
-  const y = snapMetersLocal(
-    clampLocal(pointY - dragState.offsetY, 0, 100),
-    snapStep,
-  );
+  const y = snapMetersLocal(clampLocal(pointY - dragState.offsetY, 0, 100), snapStep);
 
   const newPolygon = polygon.map((p, i) => (i === dragState.vertexIndex ? { x, y } : p));
 
@@ -109,7 +106,12 @@ export function translatePolygon(polygon: Point[], deltaX: number, deltaY: numbe
   }));
 }
 
-export function polygonBounds(polygon: Point[]): { minX: number; maxX: number; minY: number; maxY: number } {
+export function polygonBounds(polygon: Point[]): {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+} {
   let minX = Infinity,
     maxX = -Infinity;
   let minY = Infinity,

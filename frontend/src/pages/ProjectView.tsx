@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { styleOptions, sunlightOptions } from "../features/planner/model";
+import { Stepper } from "../features/planner/Stepper";
+import { SunlightChips } from "../features/planner/SunlightChips";
 import type { PlannerForm } from "../features/planner/types";
 
 interface ProjectViewProps {
@@ -17,185 +18,94 @@ export function ProjectView({ form, onFormChange }: ProjectViewProps) {
   }
 
   return (
-    <div className="workflow-view page-enter">
-      <WorkflowHeading
-        step="Paso 1 de 3"
-        title="Cuéntanos cómo es el espacio."
-        description="Con estas medidas podemos construir una primera geometría. Podrás corregirla antes de confirmar el anteproyecto."
-      />
+    <div className="project-view-new">
+      <form onSubmit={continueToPlants} className="project-form-stepped">
+        <div className="project-left">
+          <Stepper currentStep={1} totalSteps={4} />
+          <h2 className="project-title">Define tu espacio</h2>
 
-      <form className="project-form" onSubmit={continueToPlants}>
-        <div className="form-sections">
-          <section className="form-card featured-card">
-            <div className="card-heading">
-              <span className="card-number">01</span>
+          {/* Dimensiones Card */}
+          <div className="project-card">
+            <div className="card-header">
+              <span className="material-symbols-outlined">straighten</span>
               <div>
-                <h2>Terreno y ambiente</h2>
-                <p>Las dimensiones útiles del patio, sin incluir el área construida.</p>
+                <h3>Dimensiones del Terreno</h3>
+                <p>Ingresa las medidas aproximadas de tu jardín.</p>
               </div>
             </div>
-            <div className="field-grid two-columns">
+            <div className="card-grid">
               <NumberField
-                label="Ancho del patio"
+                label="Ancho"
                 suffix="m"
                 value={form.yard_width}
                 min={1}
                 onChange={(value) => onFormChange("yard_width", value)}
               />
               <NumberField
-                label="Largo del patio"
+                label="Largo"
                 suffix="m"
                 value={form.yard_height}
                 min={1}
                 onChange={(value) => onFormChange("yard_height", value)}
               />
-              <label className="field-control">
-                <span>Exposición solar</span>
-                <select
-                  value={form.sunlight}
-                  onChange={(event) =>
-                    onFormChange("sunlight", event.currentTarget.value as PlannerForm["sunlight"])
-                  }
-                >
-                  {sunlightOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field-control">
-                <span>Estilo buscado</span>
-                <select
-                  value={form.style}
-                  onChange={(event) =>
-                    onFormChange("style", event.currentTarget.value as PlannerForm["style"])
-                  }
-                >
-                  {styleOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
             </div>
-          </section>
+          </div>
 
-          <section className="form-card">
-            <div className="card-heading">
-              <span className="card-number">02</span>
+          {/* Condiciones Card */}
+          <div className="project-card">
+            <div className="card-header">
+              <span className="material-symbols-outlined">wb_sunny</span>
               <div>
-                <h2>Huella de la casa</h2>
-                <p>Ubicación aproximada dentro del terreno. No requiere un plano técnico.</p>
+                <h3>Condiciones Ambientales</h3>
               </div>
             </div>
-            <div className="shape-selector" role="group" aria-label="Forma de la casa">
-              <span>Forma de la huella</span>
-              <button
-                className={form.house_shape === "rectangle" ? "active" : ""}
-                type="button"
-                onClick={() => onFormChange("house_shape", "rectangle")}
-              >
-                Rectangular
-              </button>
-              <button
-                className={form.house_shape === "l_shape" ? "active" : ""}
-                type="button"
-                onClick={() => onFormChange("house_shape", "l_shape")}
-              >
-                En L
-              </button>
-            </div>
-            <div className="field-grid four-columns">
-              <NumberField
-                label="Ancho"
-                suffix="m"
-                value={form.obstacle_width}
-                min={0}
-                onChange={(value) => onFormChange("obstacle_width", value)}
+            <div className="card-content">
+              <label className="field-label">Nivel de Sol predominante</label>
+              <SunlightChips
+                value={form.sunlight}
+                onChange={(value) => onFormChange("sunlight", value)}
               />
-              <NumberField
-                label="Largo"
-                suffix="m"
-                value={form.obstacle_height}
-                min={0}
-                onChange={(value) => onFormChange("obstacle_height", value)}
-              />
-              <NumberField
-                label="Distancia izquierda"
-                suffix="m"
-                value={form.obstacle_x}
-                min={0}
-                onChange={(value) => onFormChange("obstacle_x", value)}
-              />
-              <NumberField
-                label="Distancia superior"
-                suffix="m"
-                value={form.obstacle_y}
-                min={0}
-                onChange={(value) => onFormChange("obstacle_y", value)}
-              />
-            </div>
-          </section>
 
-          <details className="form-card pricing-details">
-            <summary>
-              <span>
-                <strong>Tarifa de agua</strong>
-                <small>Opcional para mejorar la estimación mensual</small>
-              </span>
-              <span aria-hidden="true">+</span>
-            </summary>
-            <div className="field-grid two-columns details-content">
-              <NumberField
-                label="Cargo variable"
-                suffix="CLP/m³"
-                value={form.water_price_clp_per_m3}
-                min={0}
-                step={50}
-                onChange={(value) => onFormChange("water_price_clp_per_m3", value)}
-              />
-              <NumberField
-                label="Cargo fijo mensual"
-                suffix="CLP"
-                value={form.fixed_charge_clp}
-                min={0}
-                step={100}
-                onChange={(value) => onFormChange("fixed_charge_clp", value)}
-              />
+              <label className="field-label" style={{ marginTop: "16px" }}>
+                Ciudad o Comuna
+              </label>
+              <div className="location-input">
+                <span className="material-symbols-outlined">location_on</span>
+                <input
+                  type="text"
+                  placeholder="Ej. Providencia, Santiago"
+                  disabled
+                  style={{ opacity: 0.5 }}
+                />
+              </div>
+              <p className="field-help">
+                Usamos esto para recomendar plantas según tu zona climática.
+              </p>
             </div>
-          </details>
+          </div>
+
+          <button type="submit" className="project-button">
+            Siguiente
+            <span className="material-symbols-outlined">arrow_forward</span>
+          </button>
         </div>
 
-        <aside className="project-summary-card">
-          <p className="eyebrow">Resumen del espacio</p>
-          <div className="dimension-preview" aria-hidden="true">
-            <span>{form.yard_width} m</span>
-            <div className="dimension-house">Casa</div>
-            <span>{form.yard_height} m</span>
+        <div className="project-right">
+          <div className="project-preview">
+            <div className="preview-placeholder">
+              <span className="material-symbols-outlined">architecture</span>
+              <p>Visualización de tu terreno</p>
+              <small>Ingresa las dimensiones para ver la escala</small>
+            </div>
           </div>
-          <dl>
-            <div>
-              <dt>Área aproximada</dt>
-              <dd>{(form.yard_width * form.yard_height).toFixed(0)} m²</dd>
-            </div>
-            <div>
-              <dt>Área construida</dt>
-              <dd>{(form.obstacle_width * form.obstacle_height).toFixed(0)} m²</dd>
-            </div>
-          </dl>
-          <p className="summary-note">
-            La propuesta será un anteproyecto. Un profesional debe validar instalaciones y medidas
-            constructivas.
-          </p>
-        </aside>
 
-        <div className="workflow-actions">
-          <span>Los datos se mantienen mientras completas estos pasos.</span>
-          <button className="button primary" type="submit">
-            Continuar a plantas
-          </button>
+          <div className="project-tip">
+            <p className="tip-label">Tip Experto</p>
+            <p className="tip-text">
+              Las plantas bien espaciadas crecen más saludables. Considera el espacio disponible
+              para que cada una pueda desarrollarse plenamente.
+            </p>
+          </div>
         </div>
       </form>
     </div>
@@ -213,9 +123,9 @@ interface NumberFieldProps {
 
 function NumberField({ label, suffix, value, min, step = 0.5, onChange }: NumberFieldProps) {
   return (
-    <label className="field-control">
-      <span>{label}</span>
-      <span className="number-input">
+    <div className="number-field">
+      <label>{label}</label>
+      <div className="number-input-wrapper">
         <input
           type="number"
           min={min}
@@ -223,29 +133,8 @@ function NumberField({ label, suffix, value, min, step = 0.5, onChange }: Number
           value={value}
           onChange={(event) => onChange(Number(event.currentTarget.value))}
         />
-        <small>{suffix}</small>
-      </span>
-    </label>
-  );
-}
-
-interface WorkflowHeadingProps {
-  step: string;
-  title: string;
-  description: string;
-}
-
-export function WorkflowHeading({ step, title, description }: WorkflowHeadingProps) {
-  return (
-    <header className="workflow-heading">
-      <p className="eyebrow">{step}</p>
-      <h1>{title}</h1>
-      <p>{description}</p>
-      <div className="step-track" aria-label={step}>
-        <span className="complete" />
-        <span />
-        <span />
+        <span className="suffix">{suffix}</span>
       </div>
-    </header>
+    </div>
   );
 }

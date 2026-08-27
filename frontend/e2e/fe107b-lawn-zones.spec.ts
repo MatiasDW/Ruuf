@@ -67,27 +67,30 @@ test("page loads without errors in design mode", async ({ page }) => {
 test("add lawn zone button exists", async ({ page }) => {
   await page.goto("/plan");
 
-  const addButton = page.getByTestId("add-lawn-zone-button");
-  await expect(addButton).toBeVisible();
-  await expect(addButton).toContainText("Agregar césped");
+  const cespedButton = page.locator(".tool-button").first();
+  await expect(cespedButton).toBeVisible();
+  await expect(cespedButton).toContainText("Césped");
 });
 
 test("lawn zone button toggles mode", async ({ page }) => {
   await page.goto("/plan");
 
-  const addButton = page.getByTestId("add-lawn-zone-button");
-  await addButton.click();
+  const cespedButton = page.locator(".tool-button").first();
+  await cespedButton.click();
 
-  await expect(addButton).toContainText("Cancelar");
+  await expect(cespedButton).toHaveClass(/active/);
 
-  await addButton.click();
-  await expect(addButton).toContainText("Agregar césped");
+  await cespedButton.click();
+  await expect(cespedButton).not.toHaveClass(/active/);
 });
 
 test("add lawn zone button hidden in water mode", async ({ page }) => {
   await page.goto("/plan");
 
-  const riegoButton = page.locator("button[type='button']").filter({ hasText: /^Riego$/ }).first();
+  const riegoButton = page
+    .locator("button[type='button']")
+    .filter({ hasText: /^Riego$/ })
+    .first();
   await riegoButton.click();
 
   const addButton = page.getByTestId("add-lawn-zone-button");

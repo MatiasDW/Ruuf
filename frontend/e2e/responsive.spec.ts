@@ -83,8 +83,8 @@ test.beforeEach(async ({ page }) => {
 
 const views = [
   { path: "/", heading: /Un jardín que se siente tuyo/i },
-  { path: "/proyecto", heading: "Cuéntanos cómo es el espacio." },
-  { path: "/plantas", heading: "Elige lo que te gustaría ver crecer." },
+  { path: "/proyecto", heading: "Define tu espacio" },
+  { path: "/plantas", heading: "Elige plantas para tu jardín" },
   { path: "/plan", heading: "Plano editable del jardín" },
 ];
 

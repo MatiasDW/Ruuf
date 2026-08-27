@@ -142,7 +142,12 @@ export function polygonArea(polygon: Point[]): number {
   return Math.abs(area) / 2;
 }
 
-export function polygonBounds(polygon: Point[]): { x: number; y: number; width: number; height: number } {
+export function polygonBounds(polygon: Point[]): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
   let minX = Infinity,
     maxX = -Infinity;
   let minY = Infinity,

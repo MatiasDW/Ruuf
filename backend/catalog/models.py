@@ -82,6 +82,7 @@ class PlantCultivar(UUIDTimeStampedModel):
     )
     style_tags = models.JSONField(default=list)
     color = models.CharField(max_length=7, default="#6f8f61")
+    image_url = models.URLField(blank=True, help_text="URL to plant image (optional)")
     foliage_type = models.CharField(
         max_length=20, choices=FoliageType.choices, default=FoliageType.EVERGREEN
     )
@@ -162,6 +163,7 @@ class GrassSpecies(UUIDTimeStampedModel):
         blank=True,
         help_text="Seasonal behavior (e.g., 'winter dormant', 'year-round green')",
     )
+    image_url = models.URLField(blank=True, help_text="URL to grass species image (optional)")
     source = models.CharField(max_length=180, help_text="Source of data (URL, publication, etc.)")
     valid_from = models.DateField(help_text="Date when this data became valid")
     provenance = models.CharField(max_length=40, default="prototype_unverified")

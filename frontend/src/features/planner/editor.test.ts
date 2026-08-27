@@ -291,7 +291,10 @@ describe("polygonArea", () => {
   });
 
   it("handles polygon with less than 3 vertices", () => {
-    const line: Point[] = [{ x: 0, y: 0 }, { x: 1, y: 1 }];
+    const line: Point[] = [
+      { x: 0, y: 0 },
+      { x: 1, y: 1 },
+    ];
     expect(polygonArea(line)).toBe(0);
   });
 

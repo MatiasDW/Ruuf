@@ -122,8 +122,8 @@ describe("App routes", () => {
   });
 
   it.each([
-    ["/proyecto", "Cuéntanos cómo es el espacio."],
-    ["/plantas", "Elige lo que te gustaría ver crecer."],
+    ["/proyecto", "Define tu espacio"],
+    ["/plantas", "Elige plantas para tu jardín"],
     ["/plan", "Plano editable del jardín"],
   ])("renders %s as an independent view", async (path, heading) => {
     stubInitialApi();

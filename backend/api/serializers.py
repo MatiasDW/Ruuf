@@ -8,7 +8,7 @@ from rest_framework import serializers
 
 from audit.models import AuditEvent
 from catalog.models import GrassSpecies, PlantCultivar, PlantRuleVersion, PlantSpecies
-from domain.geometry import validate_geometry
+from domain.geometry import polygon_area, polygon_self_intersects, validate_geometry
 from finance.models import (
     Expense,
     PriceBook,
@@ -61,6 +61,14 @@ class EmptySerializer(serializers.Serializer):
 
 
 class CompatibilityPlantSerializer(serializers.Serializer):
+    EMOJI_BY_CATEGORY = {
+        "tree": "🌳",
+        "shrub": "🌿",
+        "flower": "🌸",
+        "groundcover": "🌿",
+        "grass": "🌱",
+    }
+
     id = serializers.SlugField()
     name = serializers.CharField()
     category = serializers.CharField()
@@ -71,6 +79,12 @@ class CompatibilityPlantSerializer(serializers.Serializer):
     liters_per_week = serializers.FloatField()
     style_tags = serializers.ListField(child=serializers.CharField())
     color = serializers.CharField()
+    image_url = serializers.URLField(required=False, allow_blank=True)
+    emoji = serializers.SerializerMethodField()
+
+    def get_emoji(self, obj: Any) -> str:
+        category = obj.get("category", "")
+        return self.EMOJI_BY_CATEGORY.get(category, "🌿")
 
 
 class CompatibilityPlanResponseSerializer(serializers.Serializer):
@@ -329,6 +343,7 @@ class PlantCultivarSerializer(serializers.ModelSerializer):
             "liters_per_week_estimate",
             "style_tags",
             "color",
+            "image_url",
             "foliage_type",
             "color_winter",
             "provenance",
@@ -340,6 +355,11 @@ class PlantCultivarSerializer(serializers.ModelSerializer):
 
 
 class GrassSpeciesSerializer(serializers.ModelSerializer):
+    emoji = serializers.SerializerMethodField()
+
+    def get_emoji(self, obj: GrassSpecies) -> str:
+        return "🌱"
+
     class Meta:
         model = GrassSpecies
         fields = (
@@ -351,6 +371,8 @@ class GrassSpeciesSerializer(serializers.ModelSerializer):
             "sunlight",
             "foot_traffic_resistance",
             "seasonality",
+            "image_url",
+            "emoji",
             "source",
             "valid_from",
             "provenance",
@@ -648,14 +670,58 @@ class ObstacleInputSerializer(StrictSerializer):
     )
 
 
+class PointSerializer(serializers.Serializer):
+    x = serializers.FloatField(min_value=0)
+    y = serializers.FloatField(min_value=0)
+
+
 class LawnZoneInputSerializer(StrictSerializer):
     x = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0"))
     y = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0"))
     width = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.01"))
     height = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.01"))
     liters_per_m2_week = serializers.DecimalField(
-        max_digits=10, decimal_places=3, min_value=Decimal("0.01")
+        max_digits=10, decimal_places=3, min_value=Decimal("0.01"), required=False
     )
+    polygon = serializers.ListField(
+        child=PointSerializer(), required=False, min_length=3, allow_null=True
+    )
+    grass_species_slug = serializers.SlugField(required=False, allow_blank=False, allow_null=True)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        polygon = attrs.get("polygon")
+        grass_species_slug = attrs.get("grass_species_slug")
+        liters_per_m2_week = attrs.get("liters_per_m2_week")
+
+        if polygon:
+            points = [{"x": p["x"], "y": p["y"]} for p in polygon]
+            if polygon_self_intersects(points):
+                raise serializers.ValidationError(
+                    {"polygon": ["Polygon has self-intersecting edges"]}
+                )
+            if polygon_area(points) <= 0.0001:
+                raise serializers.ValidationError(
+                    {"polygon": ["Polygon area must be greater than zero"]}
+                )
+
+        if grass_species_slug:
+            try:
+                GrassSpecies.objects.get(slug=grass_species_slug)
+            except GrassSpecies.DoesNotExist as e:
+                raise serializers.ValidationError(
+                    {"grass_species_slug": [f"Grass species '{grass_species_slug}' not found"]}
+                ) from e
+
+        if not liters_per_m2_week and not grass_species_slug:
+            raise serializers.ValidationError(
+                {
+                    "liters_per_m2_week": [
+                        "Either liters_per_m2_week or grass_species_slug must be provided"
+                    ]
+                }
+            )
+
+        return attrs
 
 
 class PlanInputSerializer(StrictSerializer):

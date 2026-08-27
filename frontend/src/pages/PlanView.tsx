@@ -17,7 +17,9 @@ import {
 import { SaveBar } from "../features/planner/SaveBar";
 import { IrrigationEditor } from "../features/planner/IrrigationEditor";
 import { HouseInspector } from "../features/planner/HouseInspector";
-import { ElementsPalette } from "../features/planner/ElementsPalette";
+import { UnifiedToolsPanel } from "../features/planner/UnifiedToolsPanel";
+import { PlanSummary } from "../features/planner/PlanSummary";
+import { UnplacedSuggestions } from "../features/planner/UnplacedSuggestions";
 import type {
   FilterMode,
   HouseFormFields,
@@ -195,15 +197,6 @@ export function PlanView({
           <Link className="button quiet" to="/plantas">
             Editar plantas
           </Link>
-          {filterMode === "type" && (
-            <button
-              className={`button quiet ${lawnZoneDrawMode ? "active" : ""}`}
-              onClick={() => onSetLawnZoneDrawMode(!lawnZoneDrawMode)}
-              data-testid="add-lawn-zone-button"
-            >
-              {lawnZoneDrawMode ? "Cancelar" : "Agregar césped"}
-            </button>
-          )}
           <span className={totalIssues ? "fit-badge" : "fit-badge ready"}>
             {totalIssues ? `${totalIssues} ajustes` : "Sin conflictos"}
           </span>
@@ -383,18 +376,24 @@ export function PlanView({
             />
           )}
 
-          <ElementsPalette onAddElement={(type) => {
-            const newId = `elem-${Date.now()}`;
-            const newElement: SiteElement = {
-              id: newId,
-              feature_type: type,
-              x: 5,
-              y: 5,
-              width: 2,
-              height: 2,
-            };
-            onSetSiteElements([...siteElements, newElement]);
-          }} />
+          {filterMode !== "water" && (
+          <UnifiedToolsPanel
+            lawnZoneDrawMode={lawnZoneDrawMode}
+            onSetLawnZoneDrawMode={onSetLawnZoneDrawMode}
+            onAddElement={(type) => {
+              const newId = `elem-${Date.now()}`;
+              const newElement: SiteElement = {
+                id: newId,
+                feature_type: type,
+                x: 5,
+                y: 5,
+                width: 2,
+                height: 2,
+              };
+              onSetSiteElements([...siteElements, newElement]);
+            }}
+          />
+          )}
 
           <section className="summary-card dark-card plan-overview-card">
             <div className="overview-card-heading">
@@ -463,6 +462,55 @@ export function PlanView({
               )}
             </div>
           </section>
+
+          <PlanSummary
+            placedCount={placements.length}
+            requestedCount={result?.summary.requested_items ?? 0}
+            weeklyLiters={Math.round(result?.irrigation.weekly_liters ?? 0)}
+            monthlyCostCLP={result?.irrigation.monthly_total_cost_clp ?? 0}
+          />
+
+          <UnplacedSuggestions
+            unplaced={result?.unplaced ?? []}
+            onReplace={() => {
+              // Replace action handled via recommendation-card above
+            }}
+            onRemove={() => {
+              // Remove action would require filtering from placements
+            }}
+          />
+
+          <div style={{ padding: "16px", display: "flex", gap: "8px", flexDirection: "column" }}>
+            <button
+              type="button"
+              disabled
+              title="Próximamente"
+              style={{
+                padding: "12px 16px",
+                borderRadius: "8px",
+                backgroundColor: "#e6e9e7",
+                color: "rgba(0, 0, 0, 0.6)",
+                border: "none",
+                cursor: "not-allowed",
+              }}
+            >
+              Descargar PDF
+            </button>
+            <a
+              href="mailto:contacto@ruuf.cl"
+              style={{
+                padding: "12px 16px",
+                borderRadius: "8px",
+                backgroundColor: "#163422",
+                color: "white",
+                textDecoration: "none",
+                textAlign: "center",
+                fontWeight: "600",
+              }}
+            >
+              Solicitar Asesoría
+            </a>
+          </div>
         </aside>
       </div>
     </div>
@@ -593,6 +641,21 @@ function EditorInspector({
                 <option value="low">Baja</option>
                 <option value="medium">Media</option>
                 <option value="high">Alta</option>
+              </select>
+            </dd>
+          </div>
+          <div>
+            <dt>Especie</dt>
+            <dd>
+              <select
+                value={lawnZone.liters_per_m2_week}
+                onChange={(e) =>
+                  onLawnZoneChange({ ...lawnZone, liters_per_m2_week: parseFloat(e.target.value) })
+                }
+              >
+                <option value={8}>Festuca (8 L/m²·sem)</option>
+                <option value={10}>Pasto inglés (10 L/m²·sem)</option>
+                <option value={12}>Grama (12 L/m²·sem)</option>
               </select>
             </dd>
           </div>

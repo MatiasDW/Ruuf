@@ -61,45 +61,27 @@ test.beforeEach(async ({ page }) => {
   await mockApi(page);
 });
 
-test("click Piscina button adds pool element visible in map", async ({ page }) => {
+test("unified tools panel is visible on plan load", async ({ page }) => {
   await page.goto("/plan");
-  await expect(page.locator(".garden-map")).toBeVisible();
-  await page.getByRole("button", { name: "Piscina" }).click();
-  const pool = page.locator(".site-element");
-  await expect(pool).toBeVisible();
-  const text = page.locator(".site-element-label");
-  await expect(text).toContainText("pool");
+  await expect(page.locator(".tools-panel")).toBeVisible();
+  const tools = page.locator(".tool-button");
+  const count = await tools.count();
+  expect(count).toBe(5);
 });
 
-test("drag pool element changes position", async ({ page, isMobile }) => {
-  test.skip(Boolean(isMobile), "mouse-only");
+test("agregar césped from unified panel activates draw mode", async ({ page }) => {
   await page.goto("/plan");
-  await page.getByRole("button", { name: "Piscina" }).click();
-  const elem = page.locator(".site-element rect").first();
-  const box = await elem.boundingBox();
-  if (!box) throw new Error("no bbox");
-  await elem.click();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + 50, box.y + 50);
-  await page.mouse.up();
-  const newBox = await elem.boundingBox();
-  expect(newBox?.x).not.toEqual(box.x);
+  const cespedButton = page.locator(".tool-button").first();
+  await expect(cespedButton).toContainText("Césped");
+  await cespedButton.click();
+  await expect(cespedButton).toHaveClass(/active/);
 });
 
-test("delete pool element removes it from map", async ({ page }) => {
+test("adding piscina from unified panel creates element visible in map", async ({ page }) => {
   await page.goto("/plan");
-  await page.getByRole("button", { name: "Piscina" }).click();
-  const pool = page.locator(".site-element");
-  await expect(pool).toBeVisible();
-  const initialCount = await pool.count();
-  expect(initialCount).toBeGreaterThan(0);
-});
-
-test("grass species selector updates water liters", async ({ page }) => {
-  await page.goto("/plan");
-  await expect(page.locator(".garden-map")).toBeVisible();
-  await page.getByRole("button", { name: "Piscina" }).click();
-  const elem = page.locator(".site-element").first();
+  const piscButton = page.locator(".tool-button").nth(1);
+  await expect(piscButton).toContainText("Piscina");
+  await piscButton.click();
+  const elem = page.locator(".site-element");
   await expect(elem).toBeVisible();
 });

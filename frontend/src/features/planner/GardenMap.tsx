@@ -34,6 +34,7 @@ export type GardenSelection =
   | { kind: "house" }
   | { kind: "plant"; index: number }
   | { kind: "lawn"; id: string }
+  | { kind: "site-element"; id: string }
   | null;
 
 interface GardenMapProps {
@@ -90,6 +91,15 @@ type DragState =
       vertexIndex: number;
       offsetX: number;
       offsetY: number;
+    }
+  | {
+      kind: "site-element";
+      pointerId: number;
+      id: string;
+      startX: number;
+      startY: number;
+      offsetX: number;
+      offsetY: number;
     };
 
 const UNITS_PER_METER = 100;
@@ -105,6 +115,7 @@ export function GardenMap({
   lawnZones,
   lawnZoneDrawMode,
   selectedLawnZoneId,
+  siteElements,
   onSelectionChange,
   onEditorGestureStart,
   onEditorGestureCommit,
@@ -116,6 +127,7 @@ export function GardenMap({
   onSetLawnZones,
   onSetLawnZoneDrawMode,
   onSetSelectedLawnZoneId,
+  onSetSiteElements,
   onIrrigationStateChange,
 }: GardenMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -519,6 +531,19 @@ export function GardenMap({
         onHousePreview(houseFieldsFromPolygon(form, newPolygon));
       }
     }
+
+    if (dragState.kind === "site-element") {
+      const elem = siteElements.find((el) => el.id === dragState.id);
+      if (!elem) return;
+      const x = snapMeters(
+        clamp((point.x - dragState.offsetX) / UNITS_PER_METER, 0, form.yard_width - elem.width),
+      );
+      const y = snapMeters(
+        clamp((point.y - dragState.offsetY) / UNITS_PER_METER, 0, form.yard_height - elem.height),
+      );
+      onSetSiteElements(siteElements.map((el) => (el.id === dragState.id ? { ...el, x, y } : el)));
+      return;
+    }
   }
 
   function finishDrag(event: ReactPointerEvent<SVGSVGElement>) {
@@ -797,7 +822,9 @@ export function GardenMap({
                             <>
                               <polygon
                                 points={lawnZone.polygon
-                                  .map((p) => [p.x * UNITS_PER_METER, p.y * UNITS_PER_METER].join(","))
+                                  .map((p) =>
+                                    [p.x * UNITS_PER_METER, p.y * UNITS_PER_METER].join(","),
+                                  )
                                   .join(" ")}
                                 className="sprinkler-coverage"
                                 fill="rgba(90, 167, 187, 0.15)"
@@ -1020,12 +1047,18 @@ export function GardenMap({
             const housePoly = form.house_polygon ?? [
               { x: house.x / UNITS_PER_METER, y: house.y / UNITS_PER_METER },
               { x: (house.x + house.width) / UNITS_PER_METER, y: house.y / UNITS_PER_METER },
-              { x: (house.x + house.width) / UNITS_PER_METER, y: (house.y + house.height) / UNITS_PER_METER },
+              {
+                x: (house.x + house.width) / UNITS_PER_METER,
+                y: (house.y + house.height) / UNITS_PER_METER,
+              },
               { x: house.x / UNITS_PER_METER, y: (house.y + house.height) / UNITS_PER_METER },
             ];
             const conflict = polygonsIntersect(zonePoly, housePoly);
             return (
-              <g key={zone.id} className={`lawn-zone ${selected ? "selected" : ""} ${conflict ? "has-conflict" : ""}`}>
+              <g
+                key={zone.id}
+                className={`lawn-zone ${selected ? "selected" : ""} ${conflict ? "has-conflict" : ""}`}
+              >
                 <rect
                   x={zone.x * UNITS_PER_METER}
                   y={zone.y * UNITS_PER_METER}
@@ -1091,6 +1124,78 @@ export function GardenMap({
             pointerEvents="none"
           />
         )}
+
+        {siteElements.map((elem) => {
+          const colorMap: Record<string, string> = {
+            pool: "#87CEEB",
+            quincho: "#8B4513",
+            terrace: "#D3D3D3",
+            path: "#A9A9A9",
+          };
+          return (
+            <g
+              key={elem.id}
+              className={`site-element ${selection?.kind === "site-element" && selection.id === elem.id ? "selected" : ""}`}
+              role="button"
+              tabIndex={0}
+              aria-label={elem.feature_type}
+              onPointerDown={(e) => {
+                onSelectionChange({ kind: "site-element", id: elem.id });
+                const svg = e.currentTarget.closest("svg");
+                if (!svg) return;
+                const rect = svg.getBoundingClientRect();
+                const startX = (e.clientX - rect.left) / zoom;
+                const startY = (e.clientY - rect.top) / zoom;
+                setDragState({
+                  kind: "site-element",
+                  pointerId: e.pointerId,
+                  id: elem.id,
+                  startX,
+                  startY,
+                  offsetX: elem.x * UNITS_PER_METER - startX,
+                  offsetY: elem.y * UNITS_PER_METER - startY,
+                });
+                if (svgRef.current?.setPointerCapture(e.pointerId)) {
+                  svgRef.current.setPointerCapture(e.pointerId);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (
+                  (e.key === "Delete" || e.key === "Backspace") &&
+                  selection?.kind === "site-element" &&
+                  selection.id === elem.id
+                ) {
+                  onSetSiteElements(siteElements.filter((el) => el.id !== elem.id));
+                  onSelectionChange(null);
+                }
+              }}
+            >
+              <rect
+                x={elem.x * UNITS_PER_METER}
+                y={elem.y * UNITS_PER_METER}
+                width={elem.width * UNITS_PER_METER}
+                height={elem.height * UNITS_PER_METER}
+                fill={colorMap[elem.feature_type] || "#ccc"}
+                opacity={0.7}
+                stroke={
+                  selection?.kind === "site-element" && selection.id === elem.id ? "#000" : "none"
+                }
+                strokeWidth={2}
+              />
+              <text
+                x={(elem.x + elem.width / 2) * UNITS_PER_METER}
+                y={(elem.y + elem.height / 2) * UNITS_PER_METER}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="site-element-label"
+                pointerEvents="none"
+                fontSize="12"
+              >
+                {elem.feature_type}
+              </text>
+            </g>
+          );
+        })}
       </svg>
 
       {filterMode === "type" ? (
@@ -1273,7 +1378,11 @@ function renderSprinklerHeadsInPolygon(polygon: Point[], zoom: number): React.Re
   const heads: React.ReactNode[] = [];
 
   for (let sx = minX * UNITS_PER_METER + spacing / 2; sx < maxX * UNITS_PER_METER; sx += spacing) {
-    for (let sy = minY * UNITS_PER_METER + spacing / 2; sy < maxY * UNITS_PER_METER; sy += spacing) {
+    for (
+      let sy = minY * UNITS_PER_METER + spacing / 2;
+      sy < maxY * UNITS_PER_METER;
+      sy += spacing
+    ) {
       // Convertir a metros para pointInPolygon
       const point: Point = { x: sx / UNITS_PER_METER, y: sy / UNITS_PER_METER };
       if (pointInPolygon(point, polygon)) {
