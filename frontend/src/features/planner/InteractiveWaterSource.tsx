@@ -160,15 +160,26 @@ export function InteractiveWaterSource({
         </>
       )}
 
-      {/* Water source circle - interactive */}
-      <circle
-        className="water-source-draggable"
-        cx={sourceX * UNITS_PER_METER}
-        cy={sourceY * UNITS_PER_METER}
-        r={handleRadius * 1.5}
-        onPointerDown={handleSourcePointerDown}
-        data-testid="water-source-draggable"
-      />
+      {/* Fuente de agua arrastrable: gota + etiqueta para que se entienda qué es. */}
+      <g
+        className="water-source-draggable-group"
+        transform={`translate(${sourceX * UNITS_PER_METER} ${sourceY * UNITS_PER_METER})`}
+      >
+        <circle
+          className="water-source-draggable"
+          r={handleRadius * 1.5}
+          onPointerDown={handleSourcePointerDown}
+          data-testid="water-source-draggable"
+        />
+        <path
+          className="water-source-drop"
+          pointerEvents="none"
+          d={`M 0 ${-12 / zoom} C ${9 / zoom} 0 ${11 / zoom} ${5 / zoom} 0 ${12 / zoom} C ${-11 / zoom} ${5 / zoom} ${-9 / zoom} 0 0 ${-12 / zoom} Z`}
+        />
+        <text className="water-source-tag" y={handleRadius * 1.5 + 26 / zoom} textAnchor="middle">
+          Fuente de agua
+        </text>
+      </g>
     </g>
   );
 }

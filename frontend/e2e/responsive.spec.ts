@@ -121,7 +121,7 @@ test("the technical plan exposes real editing controls", async ({ page }) => {
 
   await page.getByTestId("house-footprint").click();
   await expect(page.getByTestId("house-resize-se")).toBeVisible();
-  await page.getByRole("button", { name: "En L" }).last().click();
+  await page.getByTestId("house-preset-l_shape").click();
   await expect(page.getByTestId("house-footprint").locator("polygon")).toBeVisible();
 });
 
@@ -163,7 +163,7 @@ test("editor history buttons undo and redo house changes", async ({ page }) => {
   await page.goto("/plan");
 
   await page.getByTestId("house-footprint").click();
-  await page.getByRole("button", { name: "En L" }).last().click();
+  await page.getByTestId("house-preset-l_shape").click();
   await expect(page.getByTestId("house-footprint").locator("polygon")).toBeVisible();
 
   await page.getByRole("button", { name: "Deshacer cambio del editor" }).click();

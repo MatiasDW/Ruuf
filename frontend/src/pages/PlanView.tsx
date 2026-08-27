@@ -1,15 +1,20 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { issueLabel, validatePlacements } from "../features/planner/editor";
 import { GardenMap, type GardenSelection } from "../features/planner/GardenMap";
 import {
-  buildLegendItems,
+  fetchIrrigationNetwork,
+  saveIrrigationNetwork,
+} from "../features/planner/irrigation-network";
+import {
   formatCurrency,
   formatIssueReason,
   highestWaterNeed,
   waterLabels,
 } from "../features/planner/model";
 import { SaveBar } from "../features/planner/SaveBar";
+import { IrrigationEditor } from "../features/planner/IrrigationEditor";
+import { HouseInspector } from "../features/planner/HouseInspector";
 import type {
   FilterMode,
   HouseFormFields,
@@ -96,7 +101,6 @@ export function PlanView({
   const selectedValidation = selection?.kind === "plant" ? validations[selection.index] : undefined;
   const selectedLawnZone =
     selection?.kind === "lawn" ? lawnZones.find((z) => z.id === selection.id) : undefined;
-  const legendItems = buildLegendItems(filterMode);
 
   useEffect(() => {
     function handleKeydown(event: KeyboardEvent) {
@@ -128,6 +132,35 @@ export function PlanView({
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
   }, [canRedo, canUndo, onRedo, onUndo]);
+
+  // Hidrata el editor desde el diseño guardado una sola vez por layout; sin este guard
+  // el efecto pisaría lo que el usuario está editando en cada re-render.
+  const hydratedNetworkLayout = useRef<string | null>(null);
+  useEffect(() => {
+    const layoutId = persistence.layoutId;
+    if (filterMode !== "water" || !layoutId || hydratedNetworkLayout.current === layoutId) {
+      return;
+    }
+    hydratedNetworkLayout.current = layoutId;
+    fetchIrrigationNetwork(layoutId)
+      .then((design) => {
+        if (design) {
+          onSetIrrigationEditor({
+            sourceX: design.water_source_x,
+            sourceY: design.water_source_y,
+            waterSourceType: design.water_source_type,
+            pipeRoute: design.main_pipe_route,
+            numPipes: (design.num_main_pipes as 1 | 2 | 3 | 4) || 1,
+            isEditing: false,
+            isDirty: false,
+            isSaving: false,
+          });
+        }
+      })
+      .catch(() => {
+        // Layout sin diseño de red guardado: el editor parte con los valores por defecto.
+      });
+  }, [filterMode, persistence.layoutId, onSetIrrigationEditor]);
 
   return (
     <div className="plan-view technical-plan page-enter">
@@ -212,25 +245,6 @@ export function PlanView({
                   Riego
                 </button>
               </div>
-              <div className="zoom-control">
-                <button
-                  type="button"
-                  aria-label="Alejar plano"
-                  onClick={() => setZoom((current) => Math.max(0.8, current - 0.2))}
-                >
-                  −
-                </button>
-                <button type="button" aria-label="Restablecer zoom" onClick={() => setZoom(1)}>
-                  {Math.round(zoom * 100)}%
-                </button>
-                <button
-                  type="button"
-                  aria-label="Acercar plano"
-                  onClick={() => setZoom((current) => Math.min(1.8, current + 0.2))}
-                >
-                  +
-                </button>
-              </div>
             </div>
           </div>
 
@@ -257,6 +271,7 @@ export function PlanView({
                 onEditorGestureStart={onEditorGestureStart}
                 onEditorGestureCommit={onEditorGestureCommit}
                 onEditorGestureCancel={onEditorGestureCancel}
+                onHouseChange={onHouseChange}
                 onHousePreview={onHousePreview}
                 onPlacementChange={onPlacementChange}
                 onPlacementPreview={onPlacementPreview}
@@ -266,70 +281,80 @@ export function PlanView({
                 onIrrigationStateChange={(partial) =>
                   onSetIrrigationEditor({ ...irrigationEditor, ...partial })
                 }
-                onIrrigationSave={async () => console.log("Save irrigation network")}
               />
             ) : (
               <div className="map-loading">
                 {loading ? "Construyendo propuesta..." : "Todavía no hay un plano"}
               </div>
             )}
-          </div>
 
-          <div className="map-footer technical-map-footer">
-            {filterMode === "water" ? (
-              <div className="legend-list irrigation-legend">
-                <span>
-                  <i className="pipe-swatch main" />
-                  Tubería principal
-                </span>
-                <span>
-                  <i className="pipe-swatch branch" />
-                  Ramales
-                </span>
-                <span>
-                  <i className="coverage-swatch" />
-                  Alcance estimado
-                </span>
-              </div>
-            ) : (
-              <div className="legend-list">
-                {legendItems.map((item) => (
-                  <span key={item.label}>
-                    <i
-                      className={item.swatchClass ?? "legend-swatch"}
-                      style={item.color ? { backgroundColor: item.color } : undefined}
-                    />
-                    {item.label}
-                  </span>
-                ))}
-              </div>
-            )}
+            <div className="map-zoom-overlay" role="group" aria-label="Zoom del plano">
+              <button
+                type="button"
+                aria-label="Acercar plano"
+                onClick={() => setZoom((current) => Math.min(1.8, current + 0.2))}
+              >
+                +
+              </button>
+              <button type="button" aria-label="Restablecer zoom" onClick={() => setZoom(1)}>
+                {Math.round(zoom * 100)}%
+              </button>
+              <button
+                type="button"
+                aria-label="Alejar plano"
+                onClick={() => setZoom((current) => Math.max(0.8, current - 0.2))}
+              >
+                −
+              </button>
+            </div>
           </div>
         </section>
 
         <aside className="plan-sidebar technical-sidebar">
-          <EditorInspector
-            form={form}
-            filterMode={filterMode}
-            selection={selection}
-            placement={selectedPlacement}
-            validation={selectedValidation}
-            lawnZone={selectedLawnZone}
-            conflictCount={editorConflicts.length}
-            onHouseChange={onHouseChange}
-            onPlacementChange={(placement) => {
-              if (selection?.kind === "plant") {
-                onPlacementChange(selection.index, placement);
+          {filterMode === "water" && irrigationEditor.isEditing ? (
+            <IrrigationEditor
+              state={irrigationEditor}
+              yardWidth={form.yard_width}
+              yardHeight={form.yard_height}
+              canSave={Boolean(persistence.layoutId && persistence.email)}
+              onStateChange={(partial) =>
+                onSetIrrigationEditor({ ...irrigationEditor, ...partial })
               }
-            }}
-            onLawnZoneChange={(zone) =>
-              onSetLawnZones(lawnZones.map((z) => (z.id === zone.id ? zone : z)))
-            }
-            onDeleteLawnZone={(id) => {
-              onSetLawnZones(lawnZones.filter((z) => z.id !== id));
-              onSetSelectedLawnZoneId(null);
-            }}
-          />
+              onSave={async () => {
+                if (!persistence.layoutId) return;
+                await saveIrrigationNetwork(persistence.layoutId, {
+                  water_source_x: irrigationEditor.sourceX,
+                  water_source_y: irrigationEditor.sourceY,
+                  water_source_type: irrigationEditor.waterSourceType,
+                  main_pipe_route: irrigationEditor.pipeRoute,
+                  num_main_pipes: irrigationEditor.numPipes,
+                });
+              }}
+            />
+          ) : (
+            <EditorInspector
+              form={form}
+              filterMode={filterMode}
+              selection={selection}
+              placement={selectedPlacement}
+              validation={selectedValidation}
+              lawnZone={selectedLawnZone}
+              conflictCount={editorConflicts.length}
+              onHouseChange={onHouseChange}
+              onPlacementChange={(placement) => {
+                if (selection?.kind === "plant") {
+                  onPlacementChange(selection.index, placement);
+                }
+              }}
+              onLawnZoneChange={(zone) =>
+                onSetLawnZones(lawnZones.map((z) => (z.id === zone.id ? zone : z)))
+              }
+              onDeleteLawnZone={(id) => {
+                onSetLawnZones(lawnZones.filter((z) => z.id !== id));
+                onSetSelectedLawnZoneId(null);
+              }}
+            />
+          )}
 
           <section className="summary-card dark-card plan-overview-card">
             <div className="overview-card-heading">
@@ -351,7 +376,10 @@ export function PlanView({
               </div>
               <div>
                 <dt>Agua/mes</dt>
-                <dd>{(result?.irrigation.monthly_m3 ?? 0).toFixed(2)} m³</dd>
+                <dd>
+                  {(result?.irrigation.monthly_m3 ?? 0).toFixed(2)} m³
+                  {lawnZones.length > 0 && <span className="summary-note"> (incluye césped)</span>}
+                </dd>
               </div>
               <div>
                 <dt>Demanda</dt>
@@ -397,14 +425,6 @@ export function PlanView({
           </section>
         </aside>
       </div>
-
-      <div className="plan-disclaimer">
-        <strong>Anteproyecto L1</strong>
-        <span>
-          Las coberturas de riego, cañerías y geometrías deben validarse en terreno antes de
-          construir.
-        </span>
-      </div>
     </div>
   );
 }
@@ -449,24 +469,10 @@ function EditorInspector({
           </div>
         </div>
         <p className="inspector-help">
-          Arrastra la huella o sus cuatro esquinas directamente en el plano.
+          Arrastra la huella o sus vértices directamente en el plano. Doble-click en una arista para
+          insertar vértice.
         </p>
-        <div className="shape-selector compact" role="group" aria-label="Forma de la casa">
-          <button
-            className={form.house_shape === "rectangle" ? "active" : ""}
-            type="button"
-            onClick={() => onHouseChange({ ...pickHouse(form), house_shape: "rectangle" })}
-          >
-            Rectangular
-          </button>
-          <button
-            className={form.house_shape === "l_shape" ? "active" : ""}
-            type="button"
-            onClick={() => onHouseChange({ ...pickHouse(form), house_shape: "l_shape" })}
-          >
-            En L
-          </button>
-        </div>
+        <HouseInspector form={form} onHouseChange={onHouseChange} />
         <div className="inspector-fields">
           <InspectorNumber
             label="Ancho"
@@ -606,33 +612,33 @@ function EditorInspector({
               <span key={issue}>{issueLabel(issue)}</span>
             ))}
           </div>
-        ) : (
-          <p className="valid-placement">
-            Ubicación válida. También puedes moverla con las flechas del teclado.
-          </p>
-        )}
+        ) : null}
       </section>
     );
   }
 
+  if (filterMode === "water") {
+    return conflictCount > 0 ? (
+      <section className="summary-card editor-inspector mode-inspector water-inspector">
+        <div className="editor-health has-errors">
+          <span aria-hidden="true" />
+          {`${conflictCount} elementos con interferencias`}
+        </div>
+      </section>
+    ) : null;
+  }
+
   return (
-    <section
-      className={`summary-card editor-inspector mode-inspector ${filterMode === "water" ? "water-inspector" : ""}`}
-    >
+    <section className="summary-card editor-inspector mode-inspector">
       <div className="inspector-title">
         <span className="selection-icon" aria-hidden="true">
-          {filterMode === "water" ? "≈" : "✥"}
+          ✥
         </span>
         <div>
-          <p className="eyebrow">{filterMode === "water" ? "Capa hidráulica" : "Editor técnico"}</p>
-          <h2>{filterMode === "water" ? "Red de riego L1" : "Selecciona un elemento"}</h2>
+          <p className="eyebrow">Editor técnico</p>
+          <h2>Selecciona un elemento</h2>
         </div>
       </div>
-      <p className="inspector-help">
-        {filterMode === "water"
-          ? "Las líneas muestran tuberías sugeridas por demanda y los círculos azules, alcance aproximado."
-          : "Haz clic en la casa o una planta para editar medidas, forma y posición."}
-      </p>
       {conflictCount > 0 && (
         <div className="editor-health has-errors">
           <span aria-hidden="true" />

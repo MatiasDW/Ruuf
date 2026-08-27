@@ -598,6 +598,7 @@ function PlannerApplication() {
                 conflictRevision: persistence.conflictRevision,
                 busy: persistence.busy,
                 message: persistence.message,
+                layoutId: persistence.layoutId ?? null,
               }}
               onSignIn={signIn}
               onSave={savePlan}

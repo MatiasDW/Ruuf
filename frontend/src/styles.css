@@ -1371,50 +1371,6 @@ h3 {
   color: #6f7e74;
 }
 
-.map-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 15px 20px;
-  border-top: 1px solid var(--line);
-}
-
-.legend-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-}
-
-.legend-list > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: #66756c;
-  font-size: 0.73rem;
-}
-
-.legend-swatch,
-.legend-swatch-outline {
-  display: inline-block;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-}
-
-.legend-swatch-outline {
-  border: 1.5px solid #8f9a92;
-  border-radius: 3px;
-}
-
-.map-footer p {
-  max-width: 290px;
-  margin: 0;
-  color: #7d8981;
-  font-size: 0.7rem;
-  text-align: right;
-}
-
 .plan-sidebar {
   display: grid;
   gap: 14px;
@@ -1542,23 +1498,6 @@ h3 {
   color: #5f7066;
   background: #edf1e9;
   font-size: 0.7rem;
-}
-
-.plan-disclaimer {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  margin-top: 18px;
-  padding: 16px 20px;
-  border-left: 3px solid var(--clay);
-  color: #65736a;
-  background: rgba(255, 253, 247, 0.64);
-  font-size: 0.78rem;
-}
-
-.plan-disclaimer strong {
-  flex: 0 0 auto;
-  color: var(--ink);
 }
 
 @media (max-width: 1180px) {
@@ -1990,16 +1929,6 @@ h3 {
     max-width: none;
   }
 
-  .map-footer {
-    align-items: flex-start;
-    flex-direction: column;
-    padding: 14px 16px;
-  }
-
-  .map-footer p {
-    text-align: left;
-  }
-
   .plan-sidebar {
     grid-template-columns: 1fr;
   }
@@ -2010,13 +1939,6 @@ h3 {
 
   .summary-primary strong {
     font-size: 2.35rem;
-  }
-
-  .plan-disclaimer {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
-    margin-bottom: 8px;
   }
 }
 
@@ -2407,6 +2329,21 @@ h3 {
   fill: #bce6ef;
 }
 
+.sprinkler-coverage {
+  fill: rgba(90, 167, 187, 0.15);
+  stroke: #5aa7bb;
+  stroke-width: 2;
+  stroke-dasharray: 4, 4;
+  opacity: 0.6;
+}
+
+.sprinkler-head {
+  fill: #5aa7bb;
+  stroke: #2c5569;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
 .plant-category-chips {
   position: absolute;
   bottom: 14px;
@@ -2423,6 +2360,65 @@ h3 {
   backdrop-filter: blur(14px);
   pointer-events: auto;
   max-width: 400px;
+}
+
+.irrigation-legend-overlay {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 5;
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  background: rgba(248, 250, 248, 0.94);
+  border: 1px solid rgba(114, 121, 114, 0.26);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(22, 52, 34, 0.1);
+  backdrop-filter: blur(14px);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #424843;
+}
+
+.irrigation-legend-overlay span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-zoom-overlay {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(248, 250, 248, 0.94);
+  border: 1px solid rgba(114, 121, 114, 0.26);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(22, 52, 34, 0.1);
+  backdrop-filter: blur(14px);
+}
+
+.map-zoom-overlay button {
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: #424843;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.map-zoom-overlay button + button {
+  border-top: 1px solid rgba(114, 121, 114, 0.18);
+}
+
+.map-zoom-overlay button:hover {
+  background: rgba(22, 52, 34, 0.08);
+  color: #163422;
 }
 
 .chip {
@@ -2489,6 +2485,9 @@ h3 {
 }
 
 .is-dragging .plant-marker.selected {
+  /* fill-box evita que scale() use el origen del SVG y desplace la planta del cursor. */
+  transform-box: fill-box;
+  transform-origin: center;
   transform: scale(1.08);
 }
 
@@ -2547,11 +2546,6 @@ h3 {
   opacity: 0.6;
 }
 
-.technical-map-footer {
-  min-height: 58px;
-  padding: 11px 16px;
-}
-
 .pipe-swatch {
   display: inline-block;
   width: 28px;
@@ -2571,6 +2565,33 @@ h3 {
   border: 1px dashed #4b9db1;
   border-radius: 50%;
   background: rgba(90, 167, 187, 0.16);
+}
+
+.sprinkler-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px dashed #5aa7bb;
+  border-radius: 3px;
+  background: rgba(90, 167, 187, 0.15);
+  position: relative;
+}
+
+.sprinkler-swatch::after {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #5aa7bb;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow:
+    -6px -6px 0 -2px #5aa7bb,
+    6px -6px 0 -2px #5aa7bb,
+    -6px 6px 0 -2px #5aa7bb,
+    6px 6px 0 -2px #5aa7bb;
 }
 
 .technical-sidebar {
@@ -2726,25 +2747,15 @@ h3 {
   font-weight: 700;
 }
 
-.inline-conflicts,
-.valid-placement {
+.inline-conflicts {
   display: grid;
   gap: 3px;
   margin: 14px 0 0;
   padding: 10px;
   border-radius: 10px;
   font-size: 0.7rem;
-}
-
-.inline-conflicts {
   color: #8f3228;
   background: #fff0ed;
-}
-
-.valid-placement {
-  color: #376848;
-  background: #e7f1e5;
-  line-height: 1.45;
 }
 
 .plan-overview-card {
@@ -2890,11 +2901,6 @@ h3 {
     left: 8px;
   }
 
-  .technical-map-footer {
-    gap: 10px;
-    padding: 12px;
-  }
-
   .technical-sidebar {
     grid-template-columns: 1fr;
   }
@@ -2916,19 +2922,12 @@ h3 {
 
 /* Irrigation Network Editor */
 
+/* Vive en el sidebar (no flota sobre el mapa): mismo lenguaje que las summary-card. */
 .irrigation-editor {
-  position: absolute;
-  right: 14px;
-  top: 14px;
-  z-index: 10;
-  width: 320px;
-  max-height: 80vh;
-  overflow-y: auto;
-  background: rgba(248, 250, 248, 0.98);
+  background: #ffffff;
   border: 1px solid rgba(114, 121, 114, 0.26);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(22, 52, 34, 0.15);
-  backdrop-filter: blur(14px);
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(22, 52, 34, 0.08);
   padding: 16px;
   font-family: "Inter", sans-serif;
   color: #3f4c44;
@@ -3029,22 +3028,22 @@ h3 {
 
 .water-source-selector {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
 }
 
 .water-source-button {
-  padding: 10px 8px;
+  padding: 8px 2px;
   border: 1px solid rgba(114, 121, 114, 0.3);
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   cursor: pointer;
   transition: all 160ms ease;
-  font-size: 0.8rem;
+  font-size: 0.58rem;
   color: #3f4c44;
 }
 
@@ -3221,8 +3220,8 @@ h3 {
 
 .edit-irrigation-button {
   position: absolute;
-  right: 14px;
-  top: 14px;
+  right: 70px;
+  bottom: 14px;
   z-index: 9;
   padding: 10px 14px;
   background: #245c69;
@@ -3244,6 +3243,12 @@ h3 {
 
 .edit-irrigation-button:active {
   transform: scale(0.98);
+}
+
+.edit-irrigation-button:disabled {
+  background: #8a9c8f;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .lawn-zones-layer {
@@ -3292,4 +3297,72 @@ h3 {
 
 .lawn-draw-mode .garden-map {
   cursor: crosshair;
+}
+
+/* Los overlays se apartan durante el drag para no tapar el plano. */
+.map-scale,
+.plant-category-chips,
+.irrigation-legend-overlay,
+.map-zoom-overlay,
+.edit-irrigation-button {
+  transition: opacity 160ms ease;
+}
+
+.is-dragging .map-scale,
+.is-dragging .plant-category-chips,
+.is-dragging .irrigation-legend-overlay,
+.is-dragging .map-zoom-overlay,
+.is-dragging .edit-irrigation-button {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.overlay-toggle {
+  border: none;
+  background: transparent;
+  padding: 2px 6px;
+  color: #66756c;
+  font-size: 0.8rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.plant-category-chips.collapsed .chip,
+.irrigation-legend-overlay.collapsed span {
+  display: none;
+}
+
+.save-hint {
+  margin: 8px 0 0;
+  color: #7d8981;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.vertex-details summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #4a654f;
+  padding: 6px 0;
+  user-select: none;
+}
+
+.vertex-details[open] summary {
+  margin-bottom: 4px;
+}
+
+.water-source-drop {
+  fill: #245c69;
+}
+
+.water-source-tag {
+  fill: #245c69;
+  font-family: "Inter", sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  paint-order: stroke;
+  stroke: rgba(248, 250, 248, 0.9);
+  stroke-width: 6px;
 }

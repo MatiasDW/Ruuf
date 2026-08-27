@@ -5,6 +5,7 @@ interface IrrigationEditorProps {
   state: IrrigationEditorState;
   yardWidth: number;
   yardHeight: number;
+  canSave: boolean;
   onStateChange: (state: Partial<IrrigationEditorState>) => void;
   onSave: () => Promise<void>;
 }
@@ -13,6 +14,7 @@ export function IrrigationEditor({
   state,
   yardWidth,
   yardHeight,
+  canSave,
   onStateChange,
   onSave,
 }: IrrigationEditorProps) {
@@ -174,11 +176,15 @@ export function IrrigationEditor({
         <button
           className="save-button"
           onClick={handleSave}
-          disabled={state.isSaving || !state.isDirty}
+          disabled={!canSave || state.isSaving || !state.isDirty}
+          title={!canSave ? "Inicia sesión y guarda el plan primero" : undefined}
           data-testid="save-irrigation-network"
         >
           {state.isSaving ? "Guardando..." : "Guardar red de riego"}
         </button>
+        {!canSave && (
+          <p className="save-hint">Inicia sesión y guarda el plan para persistir la red.</p>
+        )}
       </div>
     </div>
   );

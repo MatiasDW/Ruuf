@@ -4,16 +4,19 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
 import {
   buildIrrigationZones,
   irrigationReachMeters,
   snapMeters,
   validatePlacements,
+  distanceToPolygon,
+  polygonLabelAnchor,
+  polygonSelfIntersects,
 } from "./editor";
 import { inferCategory, shortLabel, typeColors, waterLabels } from "./model";
 import { InteractiveWaterSource } from "./InteractiveWaterSource";
-import { IrrigationEditor } from "./IrrigationEditor";
 import type {
   FilterMode,
   HouseFormFields,
@@ -21,6 +24,7 @@ import type {
   LawnZone,
   Placement,
   PlannerForm,
+  Point,
 } from "./types";
 
 export type GardenSelection =
@@ -43,6 +47,7 @@ interface GardenMapProps {
   onEditorGestureStart: () => void;
   onEditorGestureCommit: () => void;
   onEditorGestureCancel: () => void;
+  onHouseChange: (house: HouseFormFields) => void;
   onHousePreview: (house: HouseFormFields) => void;
   onPlacementChange: (index: number, placement: Placement) => void;
   onPlacementPreview: (index: number, placement: Placement) => void;
@@ -50,7 +55,6 @@ interface GardenMapProps {
   onSetLawnZoneDrawMode: (mode: boolean) => void;
   onSetSelectedLawnZoneId: (id: string | null) => void;
   onIrrigationStateChange?: (state: Partial<IrrigationEditorState>) => void;
-  onIrrigationSave?: () => Promise<void>;
 }
 
 type ResizeCorner = "nw" | "ne" | "se" | "sw";
@@ -74,6 +78,13 @@ type DragState =
       startX: number;
       startY: number;
       zone: { x: number; y: number; width: number; height: number };
+    }
+  | {
+      kind: "polygon-vertex";
+      pointerId: number;
+      vertexIndex: number;
+      offsetX: number;
+      offsetY: number;
     };
 
 const UNITS_PER_METER = 100;
@@ -93,6 +104,7 @@ export function GardenMap({
   onEditorGestureStart,
   onEditorGestureCommit,
   onEditorGestureCancel,
+  onHouseChange,
   onHousePreview,
   onPlacementChange,
   onPlacementPreview,
@@ -100,10 +112,10 @@ export function GardenMap({
   onSetLawnZoneDrawMode,
   onSetSelectedLawnZoneId,
   onIrrigationStateChange,
-  onIrrigationSave,
 }: GardenMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [selectedVertexIndex, setSelectedVertexIndex] = useState<number | null>(null);
   const [lawnDrawState, setLawnDrawState] = useState<{
     startX: number;
     startY: number;
@@ -113,14 +125,32 @@ export function GardenMap({
 
   useEffect(() => {
     function handleKeyDown(e: globalThis.KeyboardEvent) {
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedLawnZoneId) {
-        onSetLawnZones(lawnZones.filter((z) => z.id !== selectedLawnZoneId));
-        onSetSelectedLawnZoneId(null);
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedLawnZoneId) {
+          onSetLawnZones(lawnZones.filter((z) => z.id !== selectedLawnZoneId));
+          onSetSelectedLawnZoneId(null);
+        } else if (
+          selectedVertexIndex !== null &&
+          form.house_polygon &&
+          form.house_polygon.length > 3
+        ) {
+          const newPolygon = form.house_polygon.filter((_, i) => i !== selectedVertexIndex);
+          onHouseChange(houseFieldsFromPolygon(form, newPolygon));
+          setSelectedVertexIndex(null);
+        }
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedLawnZoneId, lawnZones, onSetLawnZones, onSetSelectedLawnZoneId]);
+  }, [
+    selectedLawnZoneId,
+    selectedVertexIndex,
+    lawnZones,
+    form,
+    onSetLawnZones,
+    onSetSelectedLawnZoneId,
+    onHouseChange,
+  ]);
   const worldWidth = form.yard_width * UNITS_PER_METER;
   const worldHeight = form.yard_height * UNITS_PER_METER;
   const visibleWidth = worldWidth / zoom;
@@ -138,12 +168,19 @@ export function GardenMap({
     validations.map((validation) => [validation.index, validation]),
   );
   const houseHasConflict = validations.some((validation) => validation.issues.includes("house"));
-  const irrigationZones = buildIrrigationZones(placements);
+  const irrigationZones = buildIrrigationZones(placements, lawnZones);
   const source = {
     x: Math.min(worldWidth, house.x + house.width),
     y: Math.min(worldHeight, house.y + house.height * 0.72),
   };
   const handleSize = 34 / zoom;
+  const houseLabelAnchor =
+    form.house_polygon && form.house_polygon.length >= 3
+      ? (() => {
+          const anchor = polygonLabelAnchor(form.house_polygon);
+          return { x: anchor.x * UNITS_PER_METER, y: anchor.y * UNITS_PER_METER };
+        })()
+      : { x: house.x + house.width / 2, y: house.y + house.height / 2 };
 
   function capturePointer(pointerId: number) {
     svgRef.current?.setPointerCapture(pointerId);
@@ -160,12 +197,18 @@ export function GardenMap({
     capturePointer(event.pointerId);
     onEditorGestureStart();
     onSelectionChange({ kind: "plant", index });
+    // La planta se centra bajo el cursor desde el primer gesto (offset cero).
     setDragState({
       kind: "plant",
       pointerId: event.pointerId,
       index,
-      offsetX: point.x - placement.x * UNITS_PER_METER,
-      offsetY: point.y - placement.y * UNITS_PER_METER,
+      offsetX: 0,
+      offsetY: 0,
+    });
+    onPlacementPreview(index, {
+      ...placement,
+      x: snapMeters(clamp(point.x / UNITS_PER_METER, 0, form.yard_width)),
+      y: snapMeters(clamp(point.y / UNITS_PER_METER, 0, form.yard_height)),
     });
   }
 
@@ -179,11 +222,15 @@ export function GardenMap({
     capturePointer(event.pointerId);
     onEditorGestureStart();
     onSelectionChange({ kind: "house" });
+    const origin =
+      form.house_polygon && form.house_polygon.length >= 3
+        ? polygonBounds(form.house_polygon)
+        : { x: house.x / UNITS_PER_METER, y: house.y / UNITS_PER_METER };
     setDragState({
       kind: "house",
       pointerId: event.pointerId,
-      offsetX: point.x - house.x,
-      offsetY: point.y - house.y,
+      offsetX: point.x - origin.x * UNITS_PER_METER,
+      offsetY: point.y - origin.y * UNITS_PER_METER,
     });
   }
 
@@ -290,6 +337,73 @@ export function GardenMap({
     });
   }
 
+  function startVertexDrag(event: ReactPointerEvent<SVGCircleElement>, vertexIndex: number) {
+    const point = eventPoint(event);
+    if (!point) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    capturePointer(event.pointerId);
+    onEditorGestureStart();
+    onSelectionChange({ kind: "house" });
+    setSelectedVertexIndex(vertexIndex);
+    setDragState({
+      kind: "polygon-vertex",
+      pointerId: event.pointerId,
+      vertexIndex,
+      offsetX: point.x - (form.house_polygon?.[vertexIndex]?.x ?? 0) * UNITS_PER_METER,
+      offsetY: point.y - (form.house_polygon?.[vertexIndex]?.y ?? 0) * UNITS_PER_METER,
+    });
+  }
+
+  function handlePolygonDoubleClick(event: React.MouseEvent<SVGPolygonElement>) {
+    if (!form.house_polygon || form.house_polygon.length < 3) return;
+    const point = eventPoint(event as unknown as ReactPointerEvent<SVGElement>);
+    if (!point) return;
+
+    const clickPoint = { x: point.x / UNITS_PER_METER, y: point.y / UNITS_PER_METER };
+    const threshold = 0.5 / zoom;
+    const dist = distanceToPolygon(clickPoint, form.house_polygon);
+
+    if (dist < threshold) {
+      let closestSegment = 0;
+      let minDist = Infinity;
+      for (let i = 0; i < form.house_polygon.length; i++) {
+        const p1 = form.house_polygon[i];
+        const p2 = form.house_polygon[(i + 1) % form.house_polygon.length];
+        if (!p1 || !p2) continue;
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const lengthSq = dx * dx + dy * dy;
+        if (lengthSq === 0) continue;
+        let t = ((clickPoint.x - p1.x) * dx + (clickPoint.y - p1.y) * dy) / lengthSq;
+        t = Math.max(0, Math.min(1, t));
+        const closestX = p1.x + t * dx;
+        const closestY = p1.y + t * dy;
+        const d = Math.hypot(clickPoint.x - closestX, clickPoint.y - closestY);
+        if (d < minDist) {
+          minDist = d;
+          closestSegment = i;
+        }
+      }
+
+      const newVertex: Point = {
+        x: snapMeters(clickPoint.x),
+        y: snapMeters(clickPoint.y),
+      };
+      const newPolygon = [
+        ...form.house_polygon.slice(0, closestSegment + 1),
+        newVertex,
+        ...form.house_polygon.slice(closestSegment + 1),
+      ];
+
+      if (!polygonSelfIntersects(newPolygon)) {
+        onHouseChange(houseFieldsFromPolygon(form, newPolygon));
+      }
+    }
+  }
+
   function handlePointerMove(event: ReactPointerEvent<SVGSVGElement>) {
     if (!dragState || dragState.pointerId !== event.pointerId) {
       return;
@@ -316,6 +430,28 @@ export function GardenMap({
     }
 
     if (dragState.kind === "house") {
+      if (form.house_polygon && form.house_polygon.length >= 3) {
+        // La casa poligonal se traslada completa: el label y la validación siguen al bbox.
+        const bounds = polygonBounds(form.house_polygon);
+        const x = snapMeters(
+          clamp((point.x - dragState.offsetX) / UNITS_PER_METER, 0, form.yard_width - bounds.width),
+        );
+        const y = snapMeters(
+          clamp(
+            (point.y - dragState.offsetY) / UNITS_PER_METER,
+            0,
+            form.yard_height - bounds.height,
+          ),
+        );
+        const deltaX = x - bounds.x;
+        const deltaY = y - bounds.y;
+        const newPolygon = form.house_polygon.map((p) => ({
+          x: p.x + deltaX,
+          y: p.y + deltaY,
+        }));
+        onHousePreview(houseFieldsFromPolygon(form, newPolygon));
+        return;
+      }
       const x = snapMeters(
         clamp(
           (point.x - dragState.offsetX) / UNITS_PER_METER,
@@ -358,6 +494,23 @@ export function GardenMap({
 
     if (dragState.kind === "resize") {
       resizeHouse(point.x - dragState.startX, point.y - dragState.startY, dragState);
+      return;
+    }
+
+    if (dragState.kind === "polygon-vertex") {
+      if (!form.house_polygon) return;
+      const x = snapMeters(
+        clamp((point.x - dragState.offsetX) / UNITS_PER_METER, 0, form.yard_width),
+      );
+      const y = snapMeters(
+        clamp((point.y - dragState.offsetY) / UNITS_PER_METER, 0, form.yard_height),
+      );
+      const newPolygon = form.house_polygon.map((p, i) =>
+        i === dragState.vertexIndex ? { x, y } : p,
+      );
+      if (!polygonSelfIntersects(newPolygon)) {
+        onHousePreview(houseFieldsFromPolygon(form, newPolygon));
+      }
     }
   }
 
@@ -621,6 +774,37 @@ export function GardenMap({
                       />
                     ) : null;
                   })}
+                  {zone.lawnZoneIds.map((lawnZoneId) => {
+                    const lawnZone = lawnZones.find((z) => z.id === lawnZoneId);
+                    if (!lawnZone) return null;
+                    const lawnX = (lawnZone.x + lawnZone.width / 2) * UNITS_PER_METER;
+                    const lawnY = (lawnZone.y + lawnZone.height / 2) * UNITS_PER_METER;
+                    return (
+                      <g key={`lawn-${lawnZoneId}`}>
+                        <path
+                          className="pipe-branch pipe-flow"
+                          d={`M ${hubX} ${hubY} L ${lawnX} ${lawnY}`}
+                        />
+                        <g className="lawn-irrigation-coverage">
+                          <rect
+                            x={lawnZone.x * UNITS_PER_METER}
+                            y={lawnZone.y * UNITS_PER_METER}
+                            width={lawnZone.width * UNITS_PER_METER}
+                            height={lawnZone.height * UNITS_PER_METER}
+                            className="sprinkler-coverage"
+                            fill="rgba(90, 167, 187, 0.15)"
+                          />
+                          {renderSprinklerHeads(
+                            lawnZone.x * UNITS_PER_METER,
+                            lawnZone.y * UNITS_PER_METER,
+                            lawnZone.width * UNITS_PER_METER,
+                            lawnZone.height * UNITS_PER_METER,
+                            zoom,
+                          )}
+                        </g>
+                      </g>
+                    );
+                  })}
                   <circle className="zone-valve" cx={hubX} cy={hubY} r={18 / zoom} />
                   <text className="zone-label" x={hubX + 28 / zoom} y={hubY - 24 / zoom}>
                     Zona {waterLabels[zone.waterNeed].toLowerCase()}
@@ -628,12 +812,14 @@ export function GardenMap({
                 </g>
               );
             })}
-            <g className="water-source" transform={`translate(${source.x} ${source.y})`}>
-              <circle r={27 / zoom} />
-              <path
-                d={`M 0 ${-13 / zoom} C ${10 / zoom} 0 ${12 / zoom} ${6 / zoom} 0 ${13 / zoom} C ${-12 / zoom} ${6 / zoom} ${-10 / zoom} 0 0 ${-13 / zoom} Z`}
-              />
-            </g>
+            {!irrigationState?.isEditing ? (
+              <g className="water-source" transform={`translate(${source.x} ${source.y})`}>
+                <circle r={27 / zoom} />
+                <path
+                  d={`M 0 ${-13 / zoom} C ${10 / zoom} 0 ${12 / zoom} ${6 / zoom} 0 ${13 / zoom} C ${-12 / zoom} ${6 / zoom} ${-10 / zoom} 0 0 ${-13 / zoom} Z`}
+                />
+              </g>
+            ) : null}
 
             {irrigationState?.isEditing && onIrrigationStateChange ? (
               <InteractiveWaterSource
@@ -669,7 +855,15 @@ export function GardenMap({
           onFocus={() => onSelectionChange({ kind: "house" })}
           data-testid="house-footprint"
         >
-          {form.house_shape === "l_shape" ? (
+          {form.house_polygon && form.house_polygon.length >= 3 ? (
+            <polygon
+              points={form.house_polygon
+                .map((p) => [p.x * UNITS_PER_METER, p.y * UNITS_PER_METER].join(","))
+                .join(" ")}
+              filter="url(#map-shadow)"
+              onDoubleClick={handlePolygonDoubleClick}
+            />
+          ) : form.house_shape === "l_shape" ? (
             <polygon points={housePolygon(house)} filter="url(#map-shadow)" />
           ) : (
             <rect
@@ -681,17 +875,13 @@ export function GardenMap({
               filter="url(#map-shadow)"
             />
           )}
-          <text
-            x={house.x + house.width / 2}
-            y={house.y + house.height / 2 - 8}
-            textAnchor="middle"
-          >
+          <text x={houseLabelAnchor.x} y={houseLabelAnchor.y - 8} textAnchor="middle">
             CASA
           </text>
           <text
             className="house-dimensions"
-            x={house.x + house.width / 2}
-            y={house.y + house.height / 2 + 34}
+            x={houseLabelAnchor.x}
+            y={houseLabelAnchor.y + 34}
             textAnchor="middle"
           >
             {form.obstacle_width} × {form.obstacle_height} m
@@ -700,16 +890,29 @@ export function GardenMap({
 
         {selection?.kind === "house" ? (
           <g className="resize-handles" aria-label="Controles para redimensionar la casa">
-            {houseHandles(house).map((handle) => (
-              <circle
-                key={handle.corner}
-                cx={handle.x}
-                cy={handle.y}
-                r={handleSize}
-                onPointerDown={(event) => startResize(event, handle.corner)}
-                data-testid={`house-resize-${handle.corner}`}
-              />
-            ))}
+            {form.house_polygon && form.house_polygon.length >= 3
+              ? form.house_polygon.map((vertex, index) => (
+                  <circle
+                    key={`vertex-${index}`}
+                    cx={vertex.x * UNITS_PER_METER}
+                    cy={vertex.y * UNITS_PER_METER}
+                    r={handleSize}
+                    className={selectedVertexIndex === index ? "vertex selected" : "vertex"}
+                    onPointerDown={(event) => startVertexDrag(event, index)}
+                    onClick={() => setSelectedVertexIndex(index)}
+                    data-testid={`polygon-vertex-${index}`}
+                  />
+                ))
+              : houseHandles(house).map((handle) => (
+                  <circle
+                    key={handle.corner}
+                    cx={handle.x}
+                    cy={handle.y}
+                    r={handleSize}
+                    onPointerDown={(event) => startResize(event, handle.corner)}
+                    data-testid={`house-resize-${handle.corner}`}
+                  />
+                ))}
           </g>
         ) : null}
 
@@ -724,7 +927,7 @@ export function GardenMap({
 
           return (
             <g
-              key={`${placement.plant_id}-${index}-${placement.x}-${placement.y}`}
+              key={`${placement.plant_id}-${index}`}
               className={`plant-marker ${selected ? "selected" : ""} ${invalid ? "has-conflict" : ""}`}
               role="button"
               tabIndex={0}
@@ -741,6 +944,7 @@ export function GardenMap({
                   cy={placement.y * UNITS_PER_METER}
                   r={irrigationReachMeters(placement) * UNITS_PER_METER}
                   fill="url(#water-coverage)"
+                  pointerEvents="none"
                 />
               ) : null}
               {filterMode === "type" || invalid || selected ? (
@@ -854,7 +1058,33 @@ export function GardenMap({
         )}
       </svg>
 
-      <PlantCategoryChips placements={placements} />
+      {filterMode === "type" ? (
+        <PlantCategoryChips placements={placements} />
+      ) : (
+        <CollapsibleOverlay
+          className="irrigation-legend-overlay"
+          storageKey="ruuf.overlay.legend"
+          label="Leyenda"
+          testId="irrigation-legend"
+        >
+          <span>
+            <i className="pipe-swatch main" />
+            Tubería principal
+          </span>
+          <span>
+            <i className="pipe-swatch branch" />
+            Ramales
+          </span>
+          <span>
+            <i className="coverage-swatch" />
+            Alcance estimado
+          </span>
+          <span>
+            <i className="sprinkler-swatch" />
+            Aspersión césped
+          </span>
+        </CollapsibleOverlay>
+      )}
 
       {filterMode === "water" && !irrigationState?.isEditing && (
         <button
@@ -864,16 +1094,6 @@ export function GardenMap({
         >
           Editar red
         </button>
-      )}
-
-      {irrigationState?.isEditing && onIrrigationStateChange && onIrrigationSave && (
-        <IrrigationEditor
-          state={irrigationState}
-          yardWidth={form.yard_width}
-          yardHeight={form.yard_height}
-          onStateChange={onIrrigationStateChange}
-          onSave={onIrrigationSave}
-        />
       )}
 
       <div className="map-scale" aria-hidden="true">
@@ -897,7 +1117,41 @@ function pickHouse(form: PlannerForm): HouseFormFields {
     obstacle_x: form.obstacle_x,
     obstacle_y: form.obstacle_y,
     house_shape: form.house_shape,
+    house_polygon: form.house_polygon,
   };
+}
+
+function polygonBounds(points: Point[]): { x: number; y: number; width: number; height: number } {
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(...xs) - minX,
+    height: Math.max(...ys) - minY,
+  };
+}
+
+/**
+ * Toda mutación del polígono pasa por aquí: obstacle_* se mantiene como el bbox del
+ * polígono para que el label CASA, el inspector y las validaciones sigan a la forma real.
+ */
+function houseFieldsFromPolygon(form: PlannerForm, polygon: Point[]): HouseFormFields {
+  const bounds = polygonBounds(polygon);
+  return {
+    ...pickHouse(form),
+    house_polygon: polygon,
+    obstacle_x: round2(bounds.x),
+    obstacle_y: round2(bounds.y),
+    obstacle_width: round2(bounds.width),
+    obstacle_height: round2(bounds.height),
+  };
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function housePolygon(house: { x: number; y: number; width: number; height: number }): string {
@@ -937,6 +1191,34 @@ function lawnZoneHandles(zone: LawnZone) {
   ];
 }
 
+function renderSprinklerHeads(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  zoom: number,
+): React.ReactNode[] {
+  const spacing = 300; // ~3 metros en unidades (100 unidades = 1 metro → 300 = 3m)
+  const headRadius = 8 / zoom;
+  const heads: React.ReactNode[] = [];
+
+  for (let sx = x + spacing / 2; sx < x + width; sx += spacing) {
+    for (let sy = y + spacing / 2; sy < y + height; sy += spacing) {
+      heads.push(
+        <circle
+          key={`head-${sx}-${sy}`}
+          cx={sx}
+          cy={sy}
+          r={headRadius}
+          className="sprinkler-head"
+        />,
+      );
+    }
+  }
+
+  return heads;
+}
+
 interface CategoryCount {
   tree: number;
   shrub: number;
@@ -964,7 +1246,12 @@ function PlantCategoryChips({ placements }: PlantCategoryChipsProps) {
   const counts = countPlantsByCategory(placements);
 
   return (
-    <div className="plant-category-chips" data-testid="plant-category-chips">
+    <CollapsibleOverlay
+      className="plant-category-chips"
+      storageKey="ruuf.overlay.chips"
+      label="Capas"
+      testId="plant-category-chips"
+    >
       <div className="chip chip-tree">
         <span className="chip-icon">🌲</span>
         <span className="chip-label">Árbol</span>
@@ -985,6 +1272,57 @@ function PlantCategoryChips({ placements }: PlantCategoryChipsProps) {
         <span className="chip-label">Césped</span>
         <span className="chip-count">{counts.grass}</span>
       </div>
+    </CollapsibleOverlay>
+  );
+}
+
+interface CollapsibleOverlayProps {
+  className: string;
+  storageKey: string;
+  label: string;
+  testId: string;
+  children: ReactNode;
+}
+
+/** Panel glass flotante que recuerda su estado abierto/cerrado entre sesiones. */
+function CollapsibleOverlay({
+  className,
+  storageKey,
+  label,
+  testId,
+  children,
+}: CollapsibleOverlayProps) {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(storageKey) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  function toggle() {
+    setCollapsed((current) => {
+      try {
+        localStorage.setItem(storageKey, current ? "0" : "1");
+      } catch {
+        // localStorage puede fallar en modo privado; el toggle sigue funcionando en memoria.
+      }
+      return !current;
+    });
+  }
+
+  return (
+    <div className={collapsed ? `${className} collapsed` : className} data-testid={testId}>
+      <button
+        type="button"
+        className="overlay-toggle"
+        onClick={toggle}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? `Mostrar ${label.toLowerCase()}` : `Ocultar ${label.toLowerCase()}`}
+      >
+        {collapsed ? `${label} ⌃` : "⌄"}
+      </button>
+      {children}
     </div>
   );
 }

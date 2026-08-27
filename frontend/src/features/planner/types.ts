@@ -3,7 +3,12 @@ export type WaterNeed = "low" | "medium" | "high";
 export type Sunlight = "full_sun" | "partial_shade" | "shade";
 export type LandscapeStyle = "mediterranean" | "native" | "formal" | "lush";
 export type FilterMode = "type" | "water";
-export type HouseShape = "rectangle" | "l_shape";
+export type HouseShape = "rectangle" | "l_shape" | "polygon";
+
+export interface Point {
+  x: number;
+  y: number;
+}
 
 export interface Plant {
   id: string;
@@ -34,13 +39,19 @@ export interface PlannerForm {
   obstacle_x: number;
   obstacle_y: number;
   house_shape: HouseShape;
+  house_polygon?: Point[];
   water_price_clp_per_m3: number;
   fixed_charge_clp: number;
 }
 
 export type HouseFormFields = Pick<
   PlannerForm,
-  "obstacle_width" | "obstacle_height" | "obstacle_x" | "obstacle_y" | "house_shape"
+  | "obstacle_width"
+  | "obstacle_height"
+  | "obstacle_x"
+  | "obstacle_y"
+  | "house_shape"
+  | "house_polygon"
 >;
 
 export interface PlanPayload {
@@ -220,6 +231,7 @@ export interface PersistenceView {
   conflictRevision: number | null;
   busy: boolean;
   message: string;
+  layoutId: string | null;
 }
 
 export interface SystemHealth {
@@ -227,12 +239,6 @@ export interface SystemHealth {
   database: string;
   redis: string;
   stitch: string;
-}
-
-export interface LegendItem {
-  label: string;
-  color?: string;
-  swatchClass?: string;
 }
 
 export type WaterSourceType = "house_tap" | "pump" | "well" | "tank" | "municipal";
